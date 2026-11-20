@@ -283,6 +283,8 @@ fun HeroContentSection(
                                 null
                             },
                             contentDescription = if (isInLibrary) stringResource(R.string.hero_remove_from_library) else stringResource(R.string.hero_add_to_library),
+                            label = if (isInLibrary) "In my list" else "My list",
+                            selected = isInLibrary,
                             onClick = onToggleLibrary,
                             onLongPress = onLibraryLongPress,
                             onFocused = onHeroActionFocused
@@ -300,12 +302,11 @@ fun HeroContentSection(
                                 } else {
                                     stringResource(R.string.hero_mark_watched)
                                 },
+                                label = if (isMovieWatched) "Watched" else "Mark watched",
                                 onClick = onToggleMovieWatched,
                                 enabled = !isMovieWatchedPending,
                                 selected = isMovieWatched,
                                 toggleable = true,
-                                selectedContainerColor = Color.White,
-                                selectedContentColor = Color.Black,
                                 onFocused = onHeroActionFocused
                             )
                         }
@@ -473,15 +474,15 @@ internal fun PlayButton(
             focusedContentColor = androidx.compose.ui.graphics.Color.Black
         ),
         shape = ButtonDefaults.shape(
-            shape = RoundedCornerShape(NuvioTheme.spacing.xxl)
+            shape = FenrirActionShape
         ),
         border = ButtonDefaults.border(
             focusedBorder = Border(
                 border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                shape = RoundedCornerShape(NuvioTheme.spacing.xxl)
+                shape = FenrirActionShape
             )
         ),
-        contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xl, vertical = 14.dp)
+        contentPadding = PaddingValues(horizontal = 36.dp, vertical = 14.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -496,7 +497,7 @@ internal fun PlayButton(
             Icon(
                 painter = playPainter,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
             AnimatedVisibility(
                 visible = text != null,
@@ -505,7 +506,8 @@ internal fun PlayButton(
             ) {
                 Text(
                     text = text ?: "",
-                    style = MaterialTheme.typography.labelLarge
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 )
             }
         }
@@ -562,6 +564,8 @@ private fun ActionIconButton(
     contentDescription: String,
     onClick: () -> Unit,
     onLongPress: (() -> Unit)? = null,
+    // Fenrir style: when set, the button is a rounded rectangle with the icon and this label.
+    label: String? = null,
     enabled: Boolean = true,
     selected: Boolean = false,
     // When true this icon button is a state toggle (watched/unwatched) and announces itself as
@@ -575,18 +579,8 @@ private fun ActionIconButton(
     var longPressTriggered by remember { mutableStateOf(false) }
     val longPressKeyTracker = rememberLongPressKeyTracker()
 
-    IconButton(
-        onClick = {
-            if (longPressTriggered) {
-                longPressTriggered = false
-            } else {
-                onClick()
-            }
-        },
-        enabled = enabled,
-        modifier = Modifier
+    val sharedModifier = Modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .size(NuvioTheme.spacing.xxxl)
             .onFocusChanged { state ->
                 if (state.isFocused) onFocused()
             }
@@ -628,7 +622,59 @@ private fun ActionIconButton(
                     role = Role.Checkbox
                     toggleableState = if (selected) ToggleableState.On else ToggleableState.Off
                 }
-            },
+            }
+    val handleClick: () -> Unit = {
+        if (longPressTriggered) {
+            longPressTriggered = false
+        } else {
+            onClick()
+        }
+    }
+
+    if (label != null) {
+        val accent = NuvioTheme.colors.Secondary
+        Button(
+            onClick = handleClick,
+            enabled = enabled,
+            modifier = sharedModifier.height(NuvioTheme.spacing.xxxl),
+            colors = ButtonDefaults.colors(
+                containerColor = Color(0xFF1C1D26),
+                focusedContainerColor = accent,
+                contentColor = if (selected) accent else Color.White,
+                focusedContentColor = NuvioTheme.colors.OnSecondary
+            ),
+            shape = ButtonDefaults.shape(shape = FenrirActionShape),
+            border = ButtonDefaults.border(
+                focusedBorder = Border(
+                    border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
+                    shape = FenrirActionShape
+                )
+            ),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+            ) {
+                when {
+                    painter != null -> Icon(painter = painter, contentDescription = null, modifier = Modifier.size(20.dp))
+                    icon != null -> Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    modifier = Modifier.semantics { this.contentDescription = contentDescription }
+                )
+            }
+        }
+        return
+    }
+
+    IconButton(
+        onClick = handleClick,
+        enabled = enabled,
+        modifier = sharedModifier.size(NuvioTheme.spacing.xxxl),
         colors = IconButtonDefaults.colors(
             containerColor = if (selected) selectedContainerColor else NuvioTheme.colors.BackgroundCard,
             focusedContainerColor = NuvioTheme.colors.Secondary,
@@ -987,3 +1033,6 @@ private fun MetaInfoDivider() {
         color = NuvioTheme.extendedColors.textTertiary
     )
 }
+
+/** Fenrir style: the show page buttons are rounded rectangles, like the phone app. */
+private val FenrirActionShape = RoundedCornerShape(12.dp)

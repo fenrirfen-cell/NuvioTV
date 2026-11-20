@@ -247,7 +247,7 @@ data class DrawerItem(
 )
 
 private data class MainUiPrefs(
-    val theme: AppTheme = AppTheme.WHITE,
+    val theme: AppTheme = AppTheme.FENRIR,
     val customThemeColors: CustomThemeColors = CustomThemeColors.Default,
     val memberAccess: MemberAccess = MemberAccess.None,
     val font: AppFont = AppFont.INTER,
@@ -540,7 +540,7 @@ open class MainActivity : ComponentActivity() {
                     experienceModeDataStore.mode,
                 ) { themeAndAccess, font, amoledMode, amoledSurfacesMode, experienceMode ->
                     MainUiPrefs(
-                        theme = themeAndAccess.first.theme ?: AppTheme.WHITE,
+                        theme = themeAndAccess.first.theme ?: AppTheme.FENRIR,
                         customThemeColors = themeAndAccess.first.customColors,
                         memberAccess = themeAndAccess.second,
                         font = font,
@@ -683,7 +683,7 @@ open class MainActivity : ComponentActivity() {
                             .apply()
                     }
                     val activeTheme = mainUiPrefs.theme
-                    if (splashPreferencesReady && activeTheme != AppTheme.WHITE) {
+                    if (splashPreferencesReady && activeTheme != AppTheme.FENRIR) {
                         splashPrefs.edit().putString("theme_$activeProfileId", activeTheme.name).apply()
                     } else if (splashPreferencesReady) {
                         splashPrefs.edit().remove("theme_$activeProfileId").apply()
@@ -702,7 +702,7 @@ open class MainActivity : ComponentActivity() {
                         ?: activeTheme.takeIf { splashPreferencesReady }
                         ?: splashPrefs.getString("theme_$activeProfileId", null)
                             ?.let { name -> AppTheme.entries.firstOrNull { it.name == name } }
-                        ?: AppTheme.WHITE
+                        ?: AppTheme.FENRIR
                     SplashBackground(
                         profileColorHex = if (hasFocusedOverride) focusedSplashColor else (colorHex ?: fallbackColor),
                         backgroundUrl = resolvedBgUrl,
@@ -1794,7 +1794,8 @@ private fun LegacySidebarButton(
     val backgroundColor by animateColorAsState(
         targetValue = when {
             isFocused -> NuvioTheme.colors.FocusBackground
-            expanded && selected -> NuvioTheme.colors.Secondary
+            // Fenrir style: soft red pill behind the current tab, red label.
+            expanded && selected -> NuvioTheme.colors.Secondary.copy(alpha = 0.2f)
             else -> Color.Transparent
         },
         label = "legacySidebarItemBackground"
@@ -1802,7 +1803,7 @@ private fun LegacySidebarButton(
     val contentColor by animateColorAsState(
         targetValue = when {
             isFocused -> NuvioTheme.colors.TextPrimary
-            expanded && selected -> NuvioTheme.colors.OnSecondary
+            expanded && selected -> NuvioTheme.colors.Secondary
             else -> NuvioTheme.colors.TextSecondary
         },
         label = "legacySidebarItemContent"
@@ -1810,7 +1811,6 @@ private fun LegacySidebarButton(
     val iconTint by animateColorAsState(
         targetValue = when {
             isFocused -> NuvioTheme.colors.TextPrimary
-            expanded && selected -> NuvioTheme.colors.OnSecondary
             selected -> NuvioTheme.colors.Secondary
             !expanded -> NuvioTheme.colors.TextTertiary
             else -> NuvioTheme.colors.TextSecondary

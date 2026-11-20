@@ -91,6 +91,23 @@ object ThemeColors {
         backgroundCard = NuvioPrimitives.neutral850
     )
 
+    /** Fenrir Read: near-black surfaces and coral red, like the Fenrir phone app. */
+    val Fenrir = ThemeColorPalette(
+        secondary = Color(0xFFFF4D57),
+        secondaryVariant = Color(0xFFE8434C),
+        focusRing = Color(0xFFFF6B73),
+        focusBackground = Color(0xFF3A1A1E),
+        background = Color(0xFF0B0B0F),
+        backgroundElevated = Color(0xFF16161C),
+        backgroundCard = Color(0xFF20212A),
+        surface = Color(0xFF1C1D26),
+        surfaceVariant = Color(0xFF2A2B34),
+        panel = Color(0xFF16161C),
+        field = Color(0xFF1C1D26),
+        menu = Color(0xFF1C1D26),
+        modal = Color(0xFF16161C)
+    )
+
     fun getColorPalette(
         theme: AppTheme,
         customColors: CustomThemeColors = CustomThemeColors.Default
@@ -109,6 +126,7 @@ object ThemeColors {
             AppTheme.AMBER -> Amber
             AppTheme.ROSE -> Rose
             AppTheme.WHITE -> White
+            AppTheme.FENRIR -> Fenrir
         }
     }
 }

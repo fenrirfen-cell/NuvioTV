@@ -13,6 +13,12 @@ import android.os.Build
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -199,6 +205,7 @@ fun HeroCarousel(
             val item = items.getOrNull(index) ?: return@Crossfade
             HeroCarouselSlide(
                 item = item,
+                heroFocused = isFocused,
                 showImdbRatings = showImdbRatings,
                 showBackdrop = showBackdrop,
                 mdbListShowOnHero = mdbListShowOnHero,
@@ -217,8 +224,8 @@ fun HeroCarousel(
         }
 
         // Indicator dots — optimized to minimize recompositions and layout passes
-        val focusRingBrush = NuvioTheme.focusRing.brush()
-        val dotColorInactive = remember { Color.White.copy(alpha = 0.3f) }
+        val focusRingBrush = androidx.compose.ui.graphics.SolidColor(NuvioTheme.colors.Secondary)
+        val dotColorInactive = remember { Color(0xFF3A3A44) }
         val dotShape = remember { RoundedCornerShape(3.dp) }
         Row(
             modifier = Modifier
@@ -257,6 +264,7 @@ fun HeroCarousel(
 @Composable
 private fun HeroCarouselSlide(
     item: MetaPreview,
+    heroFocused: Boolean = false,
     showImdbRatings: Boolean,
     showBackdrop: Boolean,
     mdbListShowOnHero: Boolean = false,
@@ -298,7 +306,7 @@ private fun HeroCarouselSlide(
         }?.trim()?.takeIf { it.isNotEmpty() }
     }
     val leadingMetaText = remember(contentTypeText, primaryGenreText) {
-        listOfNotNull(contentTypeText, primaryGenreText).joinToString(separator = " • ")
+        listOfNotNull(contentTypeText, primaryGenreText).joinToString(separator = "  ·  ").uppercase()
     }
     val trailingMetadata = remember(runtimeText, releaseYear) {
         listOfNotNull(runtimeText, releaseYear)
@@ -312,6 +320,17 @@ private fun HeroCarouselSlide(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            // Fenrir style: the banner is a big rounded card, outlined in red while focused.
+            .padding(horizontal = NuvioTheme.spacing.xl, vertical = NuvioTheme.spacing.sm)
+            .clip(FenrirHeroShape)
+            .background(Color(0xFF20212A))
+            .then(
+                if (heroFocused) {
+                    Modifier.border(3.dp, NuvioTheme.colors.Secondary, FenrirHeroShape)
+                } else {
+                    Modifier
+                }
+            )
             .then(if (highlighterEnabled) Modifier.recompositionHighlighter() else Modifier)
     ) {
         if (showBackdrop) {
@@ -361,8 +380,8 @@ private fun HeroCarouselSlide(
                     if (leadingMetaText.isNotBlank()) {
                         Text(
                             text = leadingMetaText,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = NuvioTheme.colors.TextSecondary,
+                            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 2.sp),
+                            color = Color(0xFFE6E6EA),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = if (hasTrailingMeta) {
@@ -435,6 +454,62 @@ private fun HeroCarouselSlide(
                     onScrollHoldChanged = onDescriptionScrollHoldChanged
                 )
             }
+
+            FenrirHeroButtons(focused = heroFocused)
+        }
+    }
+}
+
+private val FenrirHeroShape = RoundedCornerShape(26.dp)
+
+/**
+ * Fenrir style buttons under the banner text: a white Play pill and a round info button.
+ * The whole banner is one remote target, so OK opens the show page (like Play on the phone).
+ */
+@Composable
+private fun FenrirHeroButtons(focused: Boolean) {
+    Row(
+        modifier = Modifier.padding(top = NuvioTheme.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .width(150.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (focused) Color.White else Color.White.copy(alpha = 0.85f))
+                .padding(vertical = 10.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Rounded.PlayArrow,
+                contentDescription = null,
+                tint = Color(0xFF0B0B0F),
+                modifier = Modifier.size(22.dp)
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.width(6.dp))
+            Text(
+                text = "Play",
+                color = Color(0xFF0B0B0F),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.3f))
+                .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Rounded.Info,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }

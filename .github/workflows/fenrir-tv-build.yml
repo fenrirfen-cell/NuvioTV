@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "17 7 * * *"
   workflow_dispatch:
+  # Build whenever Fenrir TV changes are pushed (the schedule only runs from the default branch).
+  push:
+    branches: [fenrir-tv]
+    paths-ignore:
+      - "**.md"
 
 permissions:
   contents: write
@@ -59,7 +64,7 @@ jobs:
       - name: Decide
         id: decide
         run: |
-          if [ "${{ steps.merge.outputs.changed }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ steps.merge.outputs.changed }}" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "push" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "No new official release; nothing to build."

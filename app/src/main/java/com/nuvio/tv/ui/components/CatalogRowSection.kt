@@ -536,13 +536,16 @@ fun CatalogRowSection(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = null,
                                     modifier = Modifier.size(NuvioTheme.spacing.xxl),
-                                    tint = NuvioTheme.colors.TextSecondary
+                                    // Fenrir style: red "See all".
+                                    tint = NuvioTheme.colors.Secondary
                                 )
                                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
                                 Text(
                                     text = seeAllLabel ?: stringResource(R.string.action_see_all),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = NuvioTheme.colors.TextSecondary
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                    ),
+                                    color = NuvioTheme.colors.Secondary
                                 )
                             }
                         }

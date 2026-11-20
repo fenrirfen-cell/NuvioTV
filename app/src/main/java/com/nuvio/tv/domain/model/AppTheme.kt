@@ -13,5 +13,7 @@ enum class AppTheme(val displayName: String) {
     EMERALD("Emerald"),
     AMBER("Amber"),
     ROSE("Rose"),
-    WHITE("White")
+    WHITE("White"),
+    /** Fenrir Read: near-black with coral red (default). */
+    FENRIR("Fenrir")
 }
