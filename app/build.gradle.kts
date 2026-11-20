@@ -663,9 +663,12 @@ androidComponents {
             com.android.build.api.variant.BuildConfigField("int", (buildNumber ?: 0).toString(), "Fenrir TV build number"),
         )
         if (buildNumber == null) return@onVariants
+        // Read NuvioTV's numbers from defaultConfig (setting a property from itself is circular).
+        val baseCode = android.defaultConfig.versionCode ?: 1
+        val baseName = android.defaultConfig.versionName ?: "1.0"
         variant.outputs.forEach { output ->
-            output.versionCode.set(output.versionCode.map { it * 1000 + buildNumber })
-            output.versionName.set(output.versionName.map { "$it-r$buildNumber" })
+            output.versionCode.set(baseCode * 1000 + buildNumber)
+            output.versionName.set("$baseName-r$buildNumber")
         }
     }
 }
