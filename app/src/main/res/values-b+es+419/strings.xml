@@ -3424,4 +3424,6 @@
     <string name="autosync_label_synced">Sincronizado automáticamente</string>
     <string name="stream_resume_from_time">Reanudar desde %1$s</string>
     <string name="stream_resume_from_percent">Reanudar desde el %1$d%%</string>
-    </resources>
+    <string name="profile_spanish_only_title">Solo español</string>
+    <string name="profile_spanish_only_subtitle">Los perfiles activados solo ven fuentes en español (torrents, debrid y enlaces directos). Se mantienen las fuentes MULTI o DUAL audio.</string>
+</resources>

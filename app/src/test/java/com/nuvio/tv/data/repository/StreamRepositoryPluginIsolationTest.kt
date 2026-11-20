@@ -328,6 +328,9 @@ class StreamRepositoryPluginIsolationTest {
                     every { isNativeRequest(any()) } returns false
                     every { revision } returns 0
                     every { sources(any(), any(), any(), any(), any()) } returns emptyList()
+                },
+                spanishOnlyStore = mockk {
+                    coEvery { isSpanishOnly(any()) } returns false
                 }
             ),
             api = api,

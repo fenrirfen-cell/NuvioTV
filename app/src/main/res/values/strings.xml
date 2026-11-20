@@ -3529,4 +3529,6 @@
     <string name="autosync_status_failed">Failed</string>
     <string name="stream_resume_from_time">Resume from %1$s</string>
     <string name="stream_resume_from_percent">Resume from %1$d%%</string>
+    <string name="profile_spanish_only_title">Spanish only</string>
+    <string name="profile_spanish_only_subtitle">Profiles switched on only see Spanish streams (torrents, debrid and direct links). Streams labelled MULTI or DUAL audio are kept.</string>
 </resources>

@@ -42,11 +42,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.security.MessageDigest
 import javax.inject.Inject
+import com.nuvio.tv.core.profile.SpanishOnlyStore
+import com.nuvio.tv.core.streams.SpanishStreamFilter
 
 private const val TAG = "StreamRepositoryImpl"
 
@@ -60,10 +63,18 @@ class StreamRepositoryImpl @Inject constructor(
     private val tmdbService: TmdbService,
     private val debridStreamPresentation: DebridStreamPresentation,
     private val localDebridAvailabilityService: LocalDebridAvailabilityService,
-    private val serverStreams: ServerStreams
+    private val serverStreams: ServerStreams,
+    private val spanishOnlyStore: SpanishOnlyStore
 ) : StreamRepository {
     private val streamSearchSessions = StreamSearchSessionCache()
     private val localPluginSearchPaused = MutableStateFlow(false)
+
+    /** True when the active profile is set to "Solo español". */
+    private suspend fun spanishOnlyActive(): Boolean =
+        spanishOnlyStore.isSpanishOnly(profileManager.activeProfileId.value)
+
+    private fun NetworkResult<List<AddonStreams>>.spanishOnly(): NetworkResult<List<AddonStreams>> =
+        if (this is NetworkResult.Success) NetworkResult.Success(SpanishStreamFilter.filterGroups(data)) else this
 
     override fun setLocalPluginSearchPaused(paused: Boolean) {
         localPluginSearchPaused.value = paused
@@ -101,6 +112,7 @@ class StreamRepositoryImpl @Inject constructor(
         continuePluginOnly: Boolean
     ): Flow<NetworkResult<List<AddonStreams>>> = flow {
         val sourceConfiguration = captureSourceConfiguration()
+        val spanishOnly = spanishOnlyActive()
         val isNativeServerRequest = serverStreams.isNativeRequest(videoId)
         val requestKey = buildStreamSearchRequestKey(
             sourceConfiguration,
@@ -137,7 +149,7 @@ class StreamRepositoryImpl @Inject constructor(
                     preferredPluginOnly = preferredPluginOnly,
                     continuePluginOnly = continuePluginOnly
                 )
-            }
+            }.map { result -> if (spanishOnly) result.spanishOnly() else result }
         )
     }
 
@@ -148,7 +160,7 @@ class StreamRepositoryImpl @Inject constructor(
         episode: Int?
     ): List<AddonStreams>? = streamSearchSessions.peek(
         buildStreamSearchRequestKey(captureSourceConfiguration(), type, videoId, season, episode)
-    )
+    )?.let { groups -> if (spanishOnlyActive()) SpanishStreamFilter.filterGroups(groups) else groups }
 
     private fun buildStreamSearchRequestKey(
         sourceConfiguration: StreamSourceConfigurationSnapshot,
@@ -709,9 +721,10 @@ class StreamRepositoryImpl @Inject constructor(
 
         return when (val result = safeApiCall(context) { api.getStreams(streamUrl) }) {
             is NetworkResult.Success -> {
-                val streams = result.data.streams?.map { 
+                val allStreams = result.data.streams?.map { 
                     it.toDomain(addonName, addonLogo) 
                 } ?: emptyList()
+                val streams = if (spanishOnlyActive()) SpanishStreamFilter.filter(allStreams) else allStreams
                 Log.d(TAG, "Streams success addon=$addonName count=${streams.size} url=$streamUrl")
                 NetworkResult.Success(streams)
             }
