@@ -2560,6 +2560,16 @@ private fun MetaDetailsContent(
                         meta = meta,
                         nextEpisode = nextEpisode,
                         nextToWatch = nextToWatch,
+                        foundInTarget = if (isPlayEnabled && !shufflePoolEmpty) {
+                            FoundInTarget(
+                                type = meta.apiType,
+                                videoId = heroVideo?.id ?: meta.id,
+                                season = heroVideo?.season,
+                                episode = heroVideo?.episode
+                            )
+                        } else {
+                            null
+                        },
                         onPlayClick = { if (shufflePoolEmpty) showRandomEpisodeOverlay = true else heroPlayClick() },
                         isPlayEnabled = shufflePoolEmpty || isPlayEnabled,
                         onPlayLongPress = if (!shufflePoolEmpty && isPlayEnabled && (showManualPlayOption || nextToWatch?.isResume == true)) {

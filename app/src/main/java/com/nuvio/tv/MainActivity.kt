@@ -52,6 +52,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -1106,6 +1107,7 @@ open class MainActivity : ComponentActivity() {
                     val rootRoutes = remember(discoverLocation) {
                         buildSet {
                             add(Screen.Home.route)
+                            add(Screen.AniDrama.route)
                             add(Screen.Search.route)
                             add(Screen.Library.route)
                             add(Screen.Settings.route)
@@ -1134,6 +1136,14 @@ open class MainActivity : ComponentActivity() {
                                     route = Screen.Home.route,
                                     label = strNavHome,
                                     icon = Icons.Default.Home
+                                )
+                            )
+                            // Fenrir: Ani-drama tab, like the phone app's Watch / Ani-drama switch.
+                            add(
+                                DrawerItem(
+                                    route = Screen.AniDrama.route,
+                                    label = "Ani-drama",
+                                    icon = Icons.Default.Tv
                                 )
                             )
                             if (discoverLocation == DiscoverLocation.IN_SIDEBAR) {

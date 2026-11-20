@@ -1269,6 +1269,14 @@ private fun PlaybackNavHost(
             )
         }
 
+        rootComposable(Screen.AniDrama.route) {
+            com.nuvio.tv.ui.screens.anidrama.AniDramaScreen(
+                onOpenDetail = { itemId, itemType ->
+                    navController.navigate(Screen.Detail.createRoute(itemId, itemType))
+                }
+            )
+        }
+
         rootComposable(Screen.Library.route) {
             LibraryScreen(
                 showBuiltInHeader = !hideBuiltInHeaders,

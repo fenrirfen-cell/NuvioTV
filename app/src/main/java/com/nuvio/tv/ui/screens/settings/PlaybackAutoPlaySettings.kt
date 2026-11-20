@@ -58,6 +58,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
+import androidx.compose.runtime.collectAsState
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -103,6 +104,53 @@ internal fun PlaybackStreamSelectionSection(
             title = stringResource(R.string.autoplay_regex_title),
             subtitle = settings.streamAutoPlayRegex.ifBlank { stringResource(R.string.autoplay_regex_placeholder) },
             onClick = { onOpenDialog(PlaybackDialog.STREAM_REGEX) }
+        )
+    }
+
+    // Fenrir: try the next source automatically, also for links you pick yourself.
+    val fenrirContext = androidx.compose.ui.platform.LocalContext.current
+    val fenrirFallback by com.nuvio.tv.ui.screens.player.FenrirSourceFallback
+        .enabledFlow(fenrirContext)
+        .collectAsState()
+    val fenrirOn = fenrirFallback == true
+    val nuvioFallbackShown = settings.streamAutoPlayMode != StreamAutoPlayMode.MANUAL &&
+        settings.streamAutoPlayFallbackOnFailure &&
+        !(settings.autoSwitchInternalPlayerOnError && !settings.streamAutoPlayFallbackOnFailure)
+    SettingsToggleRow(
+        title = "Try the next source automatically",
+        subtitle = "When a link fails or doesn't start in time, play the next source that has the episode, " +
+            "in your add-on order. Works for links you pick too.",
+        checked = fenrirOn,
+        onToggle = {
+            com.nuvio.tv.ui.screens.player.FenrirSourceFallback.setEnabled(fenrirContext, !fenrirOn)
+        },
+        enabled = settings.playerPreference != PlayerPreference.EXTERNAL
+    )
+    if (fenrirOn && !nuvioFallbackShown) {
+        SliderSettingsItem(
+            title = "Give up on a source after",
+            subtitle = stringResource(R.string.autoplay_fallback_startup_timeout_sub),
+            value = settings.streamAutoPlayFallbackStartupTimeoutSeconds,
+            valueText = stringResource(
+                R.string.autoplay_fallback_startup_timeout_value,
+                settings.streamAutoPlayFallbackStartupTimeoutSeconds
+            ),
+            minValue = PlayerSettings.MIN_SOURCE_STARTUP_TIMEOUT_SECONDS,
+            maxValue = PlayerSettings.MAX_SOURCE_STARTUP_TIMEOUT_SECONDS,
+            step = PlayerSettings.SOURCE_STARTUP_TIMEOUT_SECONDS_STEP,
+            enabled = settings.playerPreference != PlayerPreference.EXTERNAL,
+            onValueChange = { seconds -> onUpdate { setStreamAutoPlayFallbackStartupTimeoutSeconds(seconds) } }
+        )
+        SliderSettingsItem(
+            title = "Sources to try",
+            subtitle = stringResource(R.string.autoplay_fallback_max_sources_sub),
+            value = settings.streamAutoPlayFallbackMaxSources,
+            valueText = "${settings.streamAutoPlayFallbackMaxSources}",
+            minValue = PlayerSettings.MIN_SOURCE_FALLBACK_MAX_SOURCES,
+            maxValue = PlayerSettings.MAX_SOURCE_FALLBACK_MAX_SOURCES,
+            step = 1,
+            enabled = settings.playerPreference != PlayerPreference.EXTERNAL,
+            onValueChange = { count -> onUpdate { setStreamAutoPlayFallbackMaxSources(count) } }
         )
     }
 

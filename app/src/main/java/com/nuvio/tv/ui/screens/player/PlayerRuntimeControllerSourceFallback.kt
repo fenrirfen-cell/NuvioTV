@@ -31,7 +31,7 @@ internal fun PlayerRuntimeController.scheduleSourceStartupTimeout() {
         // The last source allowed keeps loading, as it would without the fallback.
         if (sourceFallbackAttempts >= streamAutoPlayFallbackMaxSources) return@launch
         val message = context.getString(R.string.player_error_source_startup_timeout, timeoutSeconds)
-        if (tryFallbackToNextSourceAfterError(message)) {
+        if (tryFallbackToNextSourceAfterError(message, startupTimeout = true)) {
             Log.w(PlayerRuntimeController.TAG, "Source showed no first frame in ${timeoutSeconds}s, falling back")
         }
     }
@@ -75,12 +75,20 @@ internal fun PlayerRuntimeController.showErrorUnlessSourceFallback(errorMessage:
  *
  * Returns `true` when a fallback was started and the error must not be shown yet.
  */
-internal fun PlayerRuntimeController.tryFallbackToNextSourceAfterError(errorMessage: String): Boolean {
+internal fun PlayerRuntimeController.tryFallbackToNextSourceAfterError(
+    errorMessage: String,
+    startupTimeout: Boolean = false
+): Boolean {
     if (sourceFallbackJob?.isActive == true) return true
-    if (!streamAutoPlayFallbackActive || autoSwitchInternalPlayerOnErrorEnabled) return false
+    // Fenrir: also falls back for links you picked, once the engine switch had its turn.
+    val fenrir = FenrirSourceFallback.isEnabled(context)
+    if (!streamAutoPlayFallbackActive && !fenrir) return false
+    if (autoSwitchInternalPlayerOnErrorEnabled) {
+        if (!fenrir || !(startupTimeout || startupEngineFailoverTriggered)) return false
+    }
     if (hasRenderedFirstFrame) return false
     val failedUrl = currentStreamUrl
-    if (failedUrl.isBlank() || failedUrl != autoSelectedSourceUrl) return false
+    if (failedUrl.isBlank() || (failedUrl != autoSelectedSourceUrl && !fenrir)) return false
     if (sourceFallbackAttempts >= streamAutoPlayFallbackMaxSources) {
         // The last source tried was saved for reuse when it started playing, but it failed.
         streamCacheKey?.let { key -> scope.launch { streamLinkCacheDataStore.remove(key) } }
@@ -99,7 +107,8 @@ internal fun PlayerRuntimeController.tryFallbackToNextSourceAfterError(errorMess
         showRecoveryOverlay()
         // Joins the shared source search, so results the stream screen already found are reused.
         loadSourceStreams(forceRefresh = false)
-        val settings = playerSettingsDataStore.playerSettings.first()
+        val playerSettings = playerSettingsDataStore.playerSettings.first()
+        val settings = if (fenrir) FenrirSourceFallback.candidateSettings(playerSettings) else playerSettings
         val installedAddonNames = streamAddonsFor(videoId).map { it.displayName }.toSet()
 
         var polls = 0
@@ -135,6 +144,15 @@ internal fun PlayerRuntimeController.tryFallbackToNextSourceAfterError(errorMess
                 PlayerRuntimeController.TAG,
                 "Source failed to start, falling back to ${playable.name ?: playable.addonName} from ${playable.addonName}"
             )
+            if (fenrir) {
+                val failedName = failedAddonName?.takeIf { it.isNotBlank() } ?: "That source"
+                android.widget.Toast.makeText(
+                    context,
+                    "$failedName didn't load. Trying ${playable.addonName}… " +
+                        "($sourceFallbackAttempts of $streamAutoPlayFallbackMaxSources)",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
             switchToSourceStream(playable)
             autoSelectedSourceUrl = currentStreamUrl
             sourceFallbackTriedKeys += "url:$currentStreamUrl"

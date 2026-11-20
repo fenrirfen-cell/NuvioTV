@@ -140,6 +140,8 @@ sealed class Screen(val route: String) {
         }
     }
     data object Search : Screen("search")
+    /** Fenrir: anime and K/C/J-drama browser. */
+    data object AniDrama : Screen("anidrama")
     data object Discover : Screen("discover")
     data object Library : Screen("library")
     data object Settings : Screen("settings")

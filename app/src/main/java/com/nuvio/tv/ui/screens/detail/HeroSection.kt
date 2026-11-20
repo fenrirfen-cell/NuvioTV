@@ -133,7 +133,9 @@ fun HeroContentSection(
     onHeroActionFocused: () -> Unit = {},
     onPlayFocusRestored: () -> Unit = {},
     onShowFullDescription: () -> Unit = {},
-    onTruncationChanged: (Boolean) -> Unit = {}
+    onTruncationChanged: (Boolean) -> Unit = {},
+    // Fenrir: what Play would start, for the "Found in your sources" badges.
+    foundInTarget: FoundInTarget? = null
 ) {
     val context = LocalContext.current
     val isSeriesApi = remember(meta.apiType) {
@@ -339,6 +341,10 @@ fun HeroContentSection(
                                 onFocused = onHeroActionFocused
                             )
                         }
+                    }
+
+                    if (foundInTarget != null) {
+                        FenrirFoundInRow(target = foundInTarget)
                     }
 
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))

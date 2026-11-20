@@ -113,6 +113,10 @@ class PlayerViewModel @Inject constructor(
         trailerPlayerPool.yield()
     }
 
+    /** Fenrir: the playing source was picked automatically (auto-play or the reused last link). */
+    val sourceAutoPicked: Boolean
+        get() = controller.navigationArgs.autoPlayNav || controller.navigationArgs.fromLinkCache
+
     internal val controller = PlayerRuntimeController(
         context = context,
         watchProgressRepository = watchProgressRepository,

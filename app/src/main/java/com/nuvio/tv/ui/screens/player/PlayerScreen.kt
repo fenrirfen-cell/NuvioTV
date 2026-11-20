@@ -255,6 +255,9 @@ fun PlayerScreen(
     var subtitleTimingConsumeNextConfirmKeyUp by remember { mutableStateOf(false) }
     var reportCodeVisible by remember { mutableStateOf(false) }
     var exitDispatched by remember { mutableStateOf(false) }
+    // Fenrir: first Back from an automatically picked source offers other choices.
+    var fenrirBackChoicesShown by remember { mutableStateOf(false) }
+    var fenrirBackChoicesOffered by remember { mutableStateOf(false) }
     var externalHandoffInProgress by remember { mutableStateOf(false) }
     val autoPlayEnabledForBack = playerBackTreatsSkipAsAutoPlay(
         streamAutoPlayMode = uiState.streamAutoPlayMode,
@@ -415,6 +418,13 @@ fun PlayerScreen(
             viewModel.onEvent(PlayerEvent.OnDismissStillWatchingPrompt)
         } else if (uiState.showControls) {
             viewModel.hideControls()
+        } else if (
+            viewModel.sourceAutoPicked &&
+            !fenrirBackChoicesOffered &&
+            !uiState.currentVideoId.isNullOrBlank()
+        ) {
+            fenrirBackChoicesOffered = true
+            fenrirBackChoicesShown = true
         } else {
             exitPlayer()
         }
@@ -422,6 +432,26 @@ fun PlayerScreen(
 
     BackHandler {
         handleBackPress()
+    }
+
+    if (fenrirBackChoicesShown) {
+        FenrirPlayerBackChoices(
+            providerName = uiState.currentStreamAddonName ?: uiState.currentStreamName,
+            isSeries = uiState.currentSeason != null && uiState.currentEpisode != null,
+            onChooseSource = {
+                fenrirBackChoicesShown = false
+                viewModel.onEvent(PlayerEvent.OnShowSourcesPanel)
+            },
+            onPickEpisode = {
+                fenrirBackChoicesShown = false
+                viewModel.onEvent(PlayerEvent.OnShowEpisodesPanel)
+            },
+            onLeave = {
+                fenrirBackChoicesShown = false
+                exitPlayer()
+            },
+            onKeepWatching = { fenrirBackChoicesShown = false }
+        )
     }
 
     LaunchedEffect(
