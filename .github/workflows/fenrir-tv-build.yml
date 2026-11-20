@@ -92,9 +92,19 @@ jobs:
         run: |
           if [ -z "$LOCAL_PROPERTIES" ] || [ -z "$DEBUG_KEYSTORE_B64" ]; then
             # Without the keys the code is still compiled (to catch mistakes), but no app is published.
-            echo "::warning::Secrets LOCAL_PROPERTIES and DEBUG_KEYSTORE_B64 are not set in this repo (Settings > Secrets and variables > Actions). Use the same values as the phone app's repo. Only checking that the code compiles."
+            # Without the keys: a TEST build signed with a throwaway key, without TMDB/Trakt keys.
+            echo "::warning::Secrets LOCAL_PROPERTIES and DEBUG_KEYSTORE_B64 are not set in this repo (Settings > Secrets and variables > Actions). Building a TEST APK with a throwaway signing key and no API keys."
             touch local.properties local.dev.properties
-            echo "ready=false" >> "$GITHUB_OUTPUT"
+            keytool -genkeypair -v -keystore "$RUNNER_TEMP/test.jks" -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Fenrir TV test,O=Fenrir,C=US" >/dev/null 2>&1
+            {
+              echo "NUVIO_RELEASE_STORE_FILE=$RUNNER_TEMP/test.jks"
+              echo "NUVIO_RELEASE_KEY_ALIAS=androiddebugkey"
+              echo "NUVIO_RELEASE_KEY_PASSWORD=android"
+              echo "NUVIO_RELEASE_STORE_PASSWORD=android"
+            } >> "$GITHUB_ENV"
+            echo "ready=test" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -110,15 +120,11 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Build
-        if: steps.decide.outputs.build == 'true' && steps.keys.outputs.ready == 'true'
+        if: steps.decide.outputs.build == 'true' && steps.keys.outputs.ready != ''
         run: ./gradlew :app:assembleFullDebug -Pdebuggable=false --stacktrace
 
-      - name: Compile only (no signing keys)
-        if: steps.decide.outputs.build == 'true' && steps.keys.outputs.ready != 'true'
-        run: ./gradlew :app:compileFullDebugKotlin --stacktrace
-
       - name: Check app
-        if: steps.decide.outputs.build == 'true' && steps.keys.outputs.ready == 'true'
+        if: steps.decide.outputs.build == 'true' && steps.keys.outputs.ready != ''
         run: |
           APK=app/build/outputs/apk/full/debug/app-full-universal-debug.apk
           AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
@@ -144,3 +150,29 @@ jobs:
           # Keep only the 5 newest Fenrir TV releases.
           gh release list --limit 100 --json tagName,createdAt --jq '.[] | select(.tagName|startswith("fenrirtv-")) | .tagName' \
             | tail -n +6 | while read -r old; do gh release delete "$old" --yes --cleanup-tag || true; done
+
+      - name: Publish TEST build (no secrets yet)
+        if: steps.decide.outputs.build == 'true' && steps.keys.outputs.ready == 'test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OUT=app/build/outputs/apk/full/debug
+          VER=$(grep -m1 'versionName = "' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          # Tag doesn't start with "fenrirtv-", so the app's updater never offers it.
+          TAG="test-fenrirtv-${VER}-r${GITHUB_RUN_NUMBER}"
+          NAME="FenrirTV-TEST-${VER}-r${GITHUB_RUN_NUMBER}"
+          cp "$OUT/app-full-universal-debug.apk"   "${NAME}-universal.apk"
+          cp "$OUT/app-full-armeabi-v7a-debug.apk" "${NAME}-armeabi-v7a.apk"
+          cp "$OUT/app-full-arm64-v8a-debug.apk"   "${NAME}-arm64-v8a.apk"
+          NOTES="TEST build of Fenrir TV (build ${GITHUB_RUN_NUMBER}), made without this repo's secrets.
+
+          - Signed with a throwaway key: before installing a normal Fenrir TV build later, uninstall this one.
+          - No API keys: TMDB info (incl. Spanish show info and the drama side of Ani-drama), Trakt, Simkl and MDBList don't work.
+          - Add-ons, CloudStream plugins, Anime (AniList), playback and Modo español links work.
+
+          Most TVs and sticks: download the **armeabi-v7a** or **universal** APK."
+          gh release create "$TAG" "${NAME}-universal.apk" "${NAME}-armeabi-v7a.apk" "${NAME}-arm64-v8a.apk" \
+            --prerelease --title "Fenrir TV TEST ${VER} (build ${GITHUB_RUN_NUMBER})" --notes "$NOTES" --target "$(git rev-parse HEAD)"
+          # Keep only the 2 newest test builds.
+          gh release list --limit 100 --json tagName --jq '.[] | select(.tagName|startswith("test-fenrirtv-")) | .tagName' \
+            | tail -n +3 | while read -r old; do gh release delete "$old" --yes --cleanup-tag || true; done
