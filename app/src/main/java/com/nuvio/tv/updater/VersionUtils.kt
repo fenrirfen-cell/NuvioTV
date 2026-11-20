@@ -70,7 +70,15 @@ internal object VersionUtils {
 
     fun isPrerelease(raw: String?): Boolean = parse(raw)?.prerelease?.isNotEmpty() == true
 
+    /** Fenrir TV build number: "...-r12" -> 12. */
+    private fun fenrirBuild(raw: String?): Int? =
+        raw?.let { Regex("-r(\\d+)$").find(it.trim())?.groupValues?.get(1)?.toIntOrNull() }
+
     fun isRemoteNewer(remote: String?, local: String?): Boolean {
+        // Fenrir TV: compare build numbers when both carry one ("fenrirtv-1.2.0-r12" vs "1.2.0-r11").
+        val remoteBuild = fenrirBuild(remote)
+        val localBuild = fenrirBuild(local) ?: com.nuvio.tv.BuildConfig.FENRIR_BUILD.takeIf { it > 0 }
+        if (remoteBuild != null && localBuild != null) return remoteBuild > localBuild
         val remoteVersion = parse(remote) ?: return false
         val localVersion = parse(local) ?: return false
         return remoteVersion > localVersion

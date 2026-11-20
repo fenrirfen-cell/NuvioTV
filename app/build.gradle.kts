@@ -135,7 +135,7 @@ android {
     ndkVersion = "29.0.14206865"
 
     defaultConfig {
-        applicationId = "com.nuvio.tv"
+        applicationId = "com.fenrirread.tv"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 24
         targetSdk = 36
@@ -181,7 +181,7 @@ android {
         buildConfigField("String", "SENTRY_DSN", buildConfigString(sentryDsn))
 
         // In-app updater (GitHub Releases)
-        buildConfigField("String", "GITHUB_OWNER", "\"NuvioMedia\"")
+        buildConfigField("String", "GITHUB_OWNER", "\"fenrirfen-cell\"")
         buildConfigField("String", "GITHUB_REPO", "\"NuvioTV\"")
     }
 
@@ -643,4 +643,29 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+// ---------------------------------------------------------------- Fenrir TV
+// Kept in one block at the end so official NuvioTV updates merge cleanly.
+androidComponents {
+    onVariants { variant ->
+        // Its own app next to NuvioTV (debug builds too, which NuvioTV renames above).
+        if (variant.buildType != "benchmark") variant.applicationId.set("com.fenrirread.tv")
+        variant.buildConfigFields?.put(
+            "FENRIR_TV",
+            com.android.build.api.variant.BuildConfigField("boolean", "true", "Fenrir TV build"),
+        )
+        // Every published build gets a higher version: NuvioTV's code x 1000 + build number,
+        // and "-rN" on the name (the in-app updater compares these numbers).
+        val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        variant.buildConfigFields?.put(
+            "FENRIR_BUILD",
+            com.android.build.api.variant.BuildConfigField("int", (buildNumber ?: 0).toString(), "Fenrir TV build number"),
+        )
+        if (buildNumber == null) return@onVariants
+        variant.outputs.forEach { output ->
+            output.versionCode.set(output.versionCode.map { it * 1000 + buildNumber })
+            output.versionName.set(output.versionName.map { "$it-r$buildNumber" })
+        }
+    }
 }

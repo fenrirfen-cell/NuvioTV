@@ -19,6 +19,29 @@ class UpdateRepository @Inject constructor(
             val owner = BuildConfig.GITHUB_OWNER
             val repo = BuildConfig.GITHUB_REPO
 
+            // Fenrir TV: its builds are published as "fenrirtv-..." releases next to the phone
+            // app's; take the newest of those, whatever the channel.
+            if (BuildConfig.FENRIR_TV) {
+                val response = gitHubReleaseApi.getReleases(owner = owner, repo = repo)
+                if (!response.isSuccessful) error("GitHub API error: ${response.code()}")
+                val (dto, asset) = response.body().orEmpty()
+                    .filter { !it.draft && it.tagName.orEmpty().startsWith("fenrirtv-") }
+                    .firstNotNullOfOrNull { release ->
+                        AbiSelector.chooseBestApkAsset(release.assets)?.let { release to it }
+                    }
+                    ?: throw NoEligibleUpdateException(channel)
+                val tag = dto.tagName.orEmpty()
+                return@runCatching AppUpdate(
+                    tag = tag,
+                    title = dto.name?.takeIf { it.isNotBlank() } ?: tag,
+                    notes = dto.body.orEmpty(),
+                    releaseUrl = dto.htmlUrl,
+                    assetName = asset.name,
+                    assetUrl = asset.browserDownloadUrl,
+                    assetSizeBytes = asset.size
+                )
+            }
+
             val releases = when (channel) {
                 UpdateChannel.STABLE -> {
                     val response = gitHubReleaseApi.getLatestRelease(owner = owner, repo = repo)
