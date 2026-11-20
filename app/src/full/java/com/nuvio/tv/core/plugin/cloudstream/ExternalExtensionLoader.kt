@@ -417,6 +417,18 @@ class ExternalExtensionLoader @Inject constructor(
     }
 
     /**
+     * Fenrir: every site (MainAPI) the plugin registered, loading it if needed. A plugin can
+     * register several sites; [getApi] only returns the first.
+     */
+    fun getAllApis(scraperId: String): List<MainAPI> {
+        if (apiCache[scraperId] == null) loadExtension(scraperId)
+        val all = apiCache.entries
+            .filter { it.key.startsWith("$scraperId:") }
+            .map { it.value }
+        return all.ifEmpty { listOfNotNull(apiCache[scraperId]) }.distinctBy { it.name }
+    }
+
+    /**
      * Get a cached MainAPI for the given scraper ID, loading if necessary.
      */
     fun getApi(scraperId: String): MainAPI? {

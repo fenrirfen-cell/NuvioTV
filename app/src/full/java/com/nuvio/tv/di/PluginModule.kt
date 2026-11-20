@@ -40,4 +40,11 @@ object PluginModule {
             externalRepoParser, externalExtensionLoader, externalExtensionRunner
         )
     }
+
+    /** Fenrir: browse CloudStream plugins (source home, title pages, Continue watching). */
+    @Provides
+    @Singleton
+    fun provideFenrirCloudStreamBrowser(
+        impl: com.nuvio.tv.core.plugin.cloudstream.FenrirCloudStreamBrowserImpl
+    ): com.nuvio.tv.fenrir.FenrirCloudStreamBrowser = impl
 }

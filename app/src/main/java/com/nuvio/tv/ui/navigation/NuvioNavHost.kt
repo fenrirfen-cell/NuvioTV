@@ -5,6 +5,8 @@ import com.nuvio.tv.ui.components.PlaybackAvailabilityProvider
 import com.nuvio.tv.ui.components.LocalPlaybackAvailability
 import com.nuvio.tv.ui.components.canStream
 import android.widget.Toast
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import com.nuvio.tv.R
 import com.nuvio.tv.LocalRootContentInset
@@ -225,6 +227,63 @@ private fun PlaybackNavHost(
         }
 
         rootComposable(Screen.Home.route) {
+            // Fenrir: Home can show a CloudStream source's own categories (picked from FENRIR READ ▾).
+            val fenrirContext = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.remember { com.nuvio.tv.fenrir.FenrirSourceHomePick.init(fenrirContext) }
+            val fenrirPicked by com.nuvio.tv.fenrir.FenrirSourceHomePick.selected.collectAsStateWithLifecycle()
+            val fenrirViewModel: com.nuvio.tv.fenrir.FenrirSourceHomeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val fenrirSources by fenrirViewModel.sources.collectAsStateWithLifecycle()
+            val fenrirScope = androidx.compose.runtime.rememberCoroutineScope()
+            var fenrirPickerOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+
+            /** Continue watching entries played from a CloudStream source resume from that source. */
+            fun fenrirResume(item: ContinueWatchingItem): Boolean {
+                val contentId = when (item) {
+                    is ContinueWatchingItem.InProgress -> item.progress.contentId
+                    is ContinueWatchingItem.NextUp -> item.info.contentId
+                }
+                if (!com.nuvio.tv.fenrir.FenrirSourceHomePick.isCloudStreamId(contentId)) return false
+                val name: String
+                val poster: String?
+                val videoId: String?
+                val episodeTitle: String?
+                val season: Int?
+                val episode: Int?
+                val type: String
+                when (item) {
+                    is ContinueWatchingItem.InProgress -> {
+                        name = item.progress.name; poster = item.progress.poster; videoId = item.progress.videoId
+                        episodeTitle = item.progress.episodeTitle; season = item.progress.season
+                        episode = item.progress.episode; type = item.progress.contentType
+                    }
+                    is ContinueWatchingItem.NextUp -> {
+                        name = item.info.name; poster = item.info.poster; videoId = item.info.videoId
+                        episodeTitle = item.info.episodeTitle; season = item.info.season
+                        episode = item.info.episode; type = item.info.contentType
+                    }
+                }
+                val sourceName = com.nuvio.tv.fenrir.FenrirSourceHomePick.sourceOf(contentId).orEmpty()
+                Toast.makeText(context, "Finding it on $sourceName…", Toast.LENGTH_SHORT).show()
+                fenrirScope.launch {
+                    val found = fenrirViewModel.resume(contentId, videoId, episodeTitle, season, episode)
+                    if (found == null) {
+                        Toast.makeText(context, "$sourceName didn't answer. Try again in a moment.", Toast.LENGTH_LONG).show()
+                    } else {
+                        navController.navigate(
+                            com.nuvio.tv.fenrir.fenrirPlayRoute(
+                                itemKey = contentId.removePrefix(com.nuvio.tv.fenrir.FenrirSourceHomePick.ID_PREFIX),
+                                title = name,
+                                poster = poster,
+                                episode = found.episode,
+                                link = found.link,
+                                isMovie = type.equals("movie", ignoreCase = true) || found.episodeCount == 1,
+                            )
+                        )
+                    }
+                }
+                return true
+            }
+
             fun createContinueWatchingRoute(
                 item: ContinueWatchingItem,
                 manualSelection: Boolean = false,
@@ -276,6 +335,17 @@ private fun PlaybackNavHost(
                 }
             }
 
+            val fenrirSourceId = fenrirPicked
+            if (fenrirSourceId != null) {
+                com.nuvio.tv.fenrir.FenrirSourceHomeScreen(
+                    sourceId = fenrirSourceId,
+                    onOpenDetail = { itemId, itemType ->
+                        navController.navigate(Screen.Detail.createRoute(itemId, itemType))
+                    },
+                    onPlay = { route -> navController.navigate(route) },
+                    viewModel = fenrirViewModel
+                )
+            } else androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
             HomeScreen(
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     val heroBackdrop = HeroBackdropState.consumeAndClear()
@@ -289,6 +359,7 @@ private fun PlaybackNavHost(
                     )
                 },
                 onContinueWatchingClick = onContinueWatchingClick@{ item ->
+                    if (fenrirResume(item)) return@onContinueWatchingClick
                     if (!playbackAvailability.canStream(item)) {
                         Toast.makeText(context, R.string.playback_unavailable_message, Toast.LENGTH_SHORT).show()
                         return@onContinueWatchingClick
@@ -296,6 +367,7 @@ private fun PlaybackNavHost(
                     navController.navigate(createContinueWatchingRoute(item))
                 },
                 onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning@{ item ->
+                    if (fenrirResume(item)) return@onContinueWatchingStartFromBeginning
                     if (!playbackAvailability.canStream(item)) {
                         Toast.makeText(context, R.string.playback_unavailable_message, Toast.LENGTH_SHORT).show()
                         return@onContinueWatchingStartFromBeginning
@@ -305,6 +377,7 @@ private fun PlaybackNavHost(
                     )
                 },
                 onContinueWatchingPlayManually = onContinueWatchingPlayManually@{ item ->
+                    if (fenrirResume(item)) return@onContinueWatchingPlayManually
                     if (!playbackAvailability.canStream(item)) {
                         Toast.makeText(context, R.string.playback_unavailable_message, Toast.LENGTH_SHORT).show()
                         return@onContinueWatchingPlayManually
@@ -320,6 +393,28 @@ private fun PlaybackNavHost(
                     navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
                 }
             )
+            // FENRIR READ ▾: pick a CloudStream source for Home (only when you have one).
+            if (!fenrirSources.isNullOrEmpty()) {
+                com.nuvio.tv.fenrir.FenrirSourceButton(
+                    sourceName = null,
+                    onClick = { fenrirViewModel.refreshSources(); fenrirPickerOpen = true },
+                    modifier = androidx.compose.ui.Modifier
+                        .align(androidx.compose.ui.Alignment.TopEnd)
+                        .padding(top = 20.dp, end = 32.dp)
+                )
+            }
+            }
+            if (fenrirPickerOpen) {
+                com.nuvio.tv.fenrir.FenrirSourcePickerDialog(
+                    sources = fenrirSources,
+                    selected = fenrirPicked,
+                    onPick = { id ->
+                        fenrirPickerOpen = false
+                        com.nuvio.tv.fenrir.FenrirSourceHomePick.select(fenrirContext, id)
+                    },
+                    onDismiss = { fenrirPickerOpen = false }
+                )
+            }
         }
 
         composable(

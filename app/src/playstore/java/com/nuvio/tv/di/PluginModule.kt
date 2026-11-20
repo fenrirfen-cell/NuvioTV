@@ -15,4 +15,10 @@ object PluginModule {
     fun providePluginManager(): PluginManager {
         return PluginManager()
     }
+
+    /** Fenrir: the Play Store build has no CloudStream plugins. */
+    @Provides
+    @Singleton
+    fun provideFenrirCloudStreamBrowser(): com.nuvio.tv.fenrir.FenrirCloudStreamBrowser =
+        com.nuvio.tv.fenrir.NoCloudStreamBrowser()
 }
