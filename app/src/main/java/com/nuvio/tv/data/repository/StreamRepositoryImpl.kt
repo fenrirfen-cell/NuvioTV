@@ -137,9 +137,23 @@ class StreamRepositoryImpl @Inject constructor(
                     preferredPluginOnly = preferredPluginOnly,
                     continuePluginOnly = continuePluginOnly
                 )
-            }
+            }.fenrirSpanishFilter()
         )
     }
+
+    /** Fenrir "Modo español": only Spanish-audio links, plus Spanish-subtitle links marked as such. */
+    private fun Flow<NetworkResult<List<AddonStreams>>>.fenrirSpanishFilter(): Flow<NetworkResult<List<AddonStreams>>> =
+        kotlinx.coroutines.flow.flow {
+            collect { result ->
+                emit(
+                    if (com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.value && result is NetworkResult.Success) {
+                        NetworkResult.Success(com.nuvio.tv.fenrir.FenrirSpanishMode.filter(result.data))
+                    } else {
+                        result
+                    }
+                )
+            }
+        }
 
     override suspend fun getCachedStreamsFromAllAddons(
         type: String,
@@ -148,7 +162,9 @@ class StreamRepositoryImpl @Inject constructor(
         episode: Int?
     ): List<AddonStreams>? = streamSearchSessions.peek(
         buildStreamSearchRequestKey(captureSourceConfiguration(), type, videoId, season, episode)
-    )
+    )?.let { groups ->
+        if (com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.value) com.nuvio.tv.fenrir.FenrirSpanishMode.filter(groups) else groups
+    }
 
     private fun buildStreamSearchRequestKey(
         sourceConfiguration: StreamSourceConfigurationSnapshot,

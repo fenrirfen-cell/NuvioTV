@@ -68,6 +68,7 @@ internal object AniDramaTmdb {
 
     /** TMDB language, e.g. "en-US", from the TV's language. */
     fun language(): String {
+        if (com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.value) return "es-MX"
         val locale = Locale.getDefault()
         val lang = locale.language.ifBlank { "en" }
         return if (locale.country.isNotBlank()) "$lang-${locale.country}" else lang

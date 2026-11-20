@@ -111,6 +111,8 @@ fun ThemeSettingsContent(
     var appIconConfirmation by remember { mutableStateOf<AppIconOption?>(null) }
     var pendingLanguageRestart by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val spanishModeViewModel: com.nuvio.tv.fenrir.FenrirSpanishModeViewModel = hiltViewModel()
+    val spanishMode by com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.collectAsStateWithLifecycle()
 
     val strLanguageSystem = stringResource(R.string.appearance_language_system)
     val supportedLocales = remember(strLanguageSystem) {
@@ -326,6 +328,20 @@ fun ThemeSettingsContent(
                     subtitle = stringResource(R.string.appearance_language_subtitle),
                     value = currentLocaleName,
                     onClick = { showLanguageDialog = true }
+                )
+                // Fenrir: Spanish mode for Spanish speakers.
+                SettingsToggleRow(
+                    title = "Modo español (Spanish mode)",
+                    subtitle = "Todo en español: la app, la información de las series y películas, el audio y los " +
+                        "subtítulos. Solo se muestran enlaces con audio en español (latino o castellano); los que " +
+                        "solo tienen subtítulos en español aparecen al final, marcados. · Everything in Spanish; " +
+                        "only Spanish-audio links, plus Spanish-subtitle links marked at the end.",
+                    checked = spanishMode,
+                    onToggle = {
+                        spanishModeViewModel.setEnabled(context, !spanishMode) { languageChanged ->
+                            if (languageChanged) pendingLanguageRestart = true
+                        }
+                    }
                 )
             }
         }

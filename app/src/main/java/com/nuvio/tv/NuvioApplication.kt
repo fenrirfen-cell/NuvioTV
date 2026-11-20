@@ -102,6 +102,8 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         val tag = getSharedPreferences("app_locale", Context.MODE_PRIVATE)
             .getString("locale_tag", null)
         LocaleCache.localeTag = tag ?: ""
+        // Fenrir: "Modo español" (Spanish-only links) is read once at start.
+        com.nuvio.tv.fenrir.FenrirSpanishMode.init(this)
     }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
