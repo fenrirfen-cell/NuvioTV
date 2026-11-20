@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,18 +36,24 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 /**
  * The Ani-drama tab on the TV: Otaku-style anime browsing (AniList) and K-/C-/J-drama browsing
  * (TMDB), like the Fenrir phone app. Posters open Nuvio's own show page.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AniDramaScreen(
     onOpenDetail: (itemId: String, itemType: String) -> Unit,
+    addonRows: List<CatalogRow> = emptyList(),
+    onOpenCatalog: ((CatalogRow) -> Unit)? = null,
     viewModel: AniDramaViewModel = hiltViewModel(),
 ) {
     val addons by viewModel.addons.collectAsStateWithLifecycle()
+    val libraryIds by viewModel.libraryIds.collectAsStateWithLifecycle()
     var regionIndex by rememberSaveable { mutableIntStateOf(0) }
     var animeChipIndex by rememberSaveable { mutableIntStateOf(0) }
     var dramaChipIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -64,68 +72,76 @@ fun AniDramaScreen(
 
     BackHandler(enabled = airingExpanded) { airingExpanded = false }
 
+    val extras = AniDramaExtras(
+        addonRows = addonRows,
+        libraryIds = libraryIds,
+        onOpenMeta = { meta -> onOpenDetail(meta.id, meta.apiType) },
+        onOpenCatalog = onOpenCatalog,
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(NuvioTheme.colors.Background)
-            .padding(top = 28.dp),
+            .padding(top = 20.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = AniDramaEdge, end = AniDramaEdge),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Ani-drama",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = NuvioTheme.colors.TextPrimary,
-            )
-            Spacer(Modifier.width(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AniDramaRegion.entries.forEach { option ->
-                    AniDramaChip(
-                        label = option.label,
-                        selected = option == region,
-                        onClick = {
-                            if (option != region) {
-                                regionIndex = option.ordinal
-                                airingExpanded = false
-                            }
-                        },
-                    )
+        Text(
+            text = "Ani-drama",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = NuvioTheme.colors.TextPrimary,
+            modifier = Modifier.padding(horizontal = AniDramaEdge, vertical = 4.dp),
+        )
+        AniDramaSegmented(
+            options = AniDramaRegion.entries.map { it.label },
+            selectedIndex = regionIndex,
+            onSelect = { index ->
+                if (index != regionIndex) {
+                    regionIndex = index
+                    airingExpanded = false
                 }
-            }
-            if (region == AniDramaRegion.Anime) {
-                Spacer(Modifier.weight(1f))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AnimeAudioFilter.entries.forEach { option ->
-                        AniDramaChip(
-                            label = option.label,
-                            selected = option == audio,
-                            onClick = { audioIndex = option.ordinal },
-                        )
-                    }
-                }
-            }
-        }
+            },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = AniDramaEdge - 4.dp),
+        )
         Spacer(Modifier.height(10.dp))
         val chipLabels = if (region == AniDramaRegion.Anime) AnimeChip.entries.map { it.label } else DramaChip.entries.map { it.label }
-        AniDramaChipRow(
-            labels = chipLabels,
-            selected = if (region == AniDramaRegion.Anime) animeChip.label else dramaChip.label,
-            onSelect = { label ->
-                airingExpanded = false
-                val index = chipLabels.indexOf(label).coerceAtLeast(0)
-                if (region == AniDramaRegion.Anime) animeChipIndex = index else dramaChipIndex = index
-            },
-        )
-        Spacer(Modifier.height(8.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = AniDramaEdge),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            chipLabels.forEachIndexed { index, label ->
+                val selectedIndex = if (region == AniDramaRegion.Anime) animeChipIndex else dramaChipIndex
+                AniDramaChip(
+                    label = label,
+                    selected = index == selectedIndex,
+                    onClick = {
+                        airingExpanded = false
+                        if (region == AniDramaRegion.Anime) animeChipIndex = index else dramaChipIndex = index
+                    },
+                )
+            }
+        }
+        if (region == AniDramaRegion.Anime) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = AniDramaEdge, end = AniDramaEdge, top = 8.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                AniDramaSegmented(
+                    options = AnimeAudioFilter.entries.map { it.label },
+                    selectedIndex = audioIndex,
+                    onSelect = { audioIndex = it },
+                    compact = true,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
 
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             if (region == AniDramaRegion.Anime) {
-                AnimeContent(animeChip, audio, airingExpanded, { airingExpanded = it }, openItem)
+                AnimeContent(animeChip, audio, airingExpanded, { airingExpanded = it }, openItem, extras)
             } else {
-                DramaContent(region, dramaChip, airingExpanded, { airingExpanded = it }, openItem)
+                DramaContent(region, dramaChip, airingExpanded, { airingExpanded = it }, openItem, extras)
             }
         }
     }
@@ -140,6 +156,7 @@ private fun AnimeContent(
     airingExpanded: Boolean,
     onExpandAiring: (Boolean) -> Unit,
     onItemClick: (AniDramaItem) -> Unit,
+    extras: AniDramaExtras,
 ) {
     when (chip) {
         AnimeChip.Airing -> if (airingExpanded) {
@@ -153,7 +170,7 @@ private fun AnimeContent(
                 onItemClick = onItemClick,
             )
         } else {
-            AnimeOverview(audio = audio, onSeeAllAiring = { onExpandAiring(true) }, onItemClick = onItemClick)
+            AnimeOverview(audio = audio, onSeeAllAiring = { onExpandAiring(true) }, onItemClick = onItemClick, extras = extras)
         }
         AnimeChip.Trending -> AnimeGrid(AniListClient.MediaQuery(sort = "TRENDING_DESC"), audio, onItemClick = onItemClick)
         AnimeChip.Popular -> AnimeGrid(AniListClient.MediaQuery(sort = "POPULARITY_DESC", ranked = true), audio, onItemClick = onItemClick)
@@ -166,11 +183,12 @@ private fun AnimeContent(
         )
         AnimeChip.Seasons -> AnimeSeasons(audio, onItemClick)
         AnimeChip.Genres -> AnimeGenres(audio, onItemClick)
-        AnimeChip.Calendar -> AniDramaWeekView(
+        AnimeChip.Calendar -> AniDramaCalendarView(
             key = "anime-calendar",
             loader = { start, days -> AnimeRepository.schedule(start, days) },
             filter = { AnimeRepository.applyAudioFilter(listOf(it.item), audio).isNotEmpty() },
             showDubBadge = true,
+            libraryIds = extras.libraryIds,
             onItemClick = onItemClick,
         )
     }
@@ -181,6 +199,7 @@ private fun AnimeOverview(
     audio: AnimeAudioFilter,
     onSeeAllAiring: () -> Unit,
     onItemClick: (AniDramaItem) -> Unit,
+    extras: AniDramaExtras,
 ) {
     val airing = rememberAniDramaPagedList(key = "anime-overview-airing") { page ->
         AnimeRepository.page(AniListClient.MediaQuery(sort = "POPULARITY_DESC", status = "RELEASING"), page)
@@ -195,15 +214,7 @@ private fun AnimeOverview(
             .let { AnimeRepository.applyAudioFilter(it, audio) }
             .distinctBy { it.key }
     }
-    val trending = rememberAniDramaPagedList(key = "anime-overview-trending") { page ->
-        if (page == 1) AnimeRepository.page(AniListClient.MediaQuery(sort = "TRENDING_DESC"), 1) else AniDramaPage(emptyList(), false)
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(26.dp),
-    ) {
+    OverviewColumn(AniDramaRegion.Anime, extras) {
         item(key = "airing") {
             AniDramaShelf(
                 title = "Airing now",
@@ -219,15 +230,6 @@ private fun AnimeOverview(
                 title = "Airing today",
                 items = todayItems,
                 loading = schedule.loading,
-                showDubBadge = true,
-                onItemClick = onItemClick,
-            )
-        }
-        item(key = "trending") {
-            AniDramaShelf(
-                title = "Trending",
-                items = AnimeRepository.applyAudioFilter(trending.items, audio),
-                loading = trending.loading,
                 showDubBadge = true,
                 onItemClick = onItemClick,
             )
@@ -272,24 +274,22 @@ private fun AnimeSeasons(audio: AnimeAudioFilter, onItemClick: (AniDramaItem) ->
         query = AniListClient.MediaQuery(sort = "POPULARITY_DESC", season = season, seasonYear = year),
         audio = audio,
         header = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AniDramaChip(label = "◀ ${year - 1}", selected = false, onClick = { year-- })
-                Text(
-                    text = "${season.label} $year",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = NuvioTheme.colors.TextPrimary,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-                if (year < current.second + 1) {
-                    AniDramaChip(label = "${year + 1} ▶", selected = false, onClick = { year++ })
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AniDramaStepButton(left = true, description = "Previous year", onClick = { year-- })
+                    Text(
+                        text = "${season.label} $year",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NuvioTheme.colors.TextPrimary,
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                    )
+                    AniDramaStepButton(left = false, description = "Next year", onClick = { if (year < current.second + 1) year++ })
                 }
-                Spacer(Modifier.width(16.dp))
-                AnimeSeason.entries.forEach { option ->
-                    AniDramaChip(option.label, option == season, onClick = { seasonIndex = option.ordinal })
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AnimeSeason.entries.forEach { option ->
+                        AniDramaChip(option.label, option == season, onClick = { seasonIndex = option.ordinal })
+                    }
                 }
             }
         },
@@ -323,6 +323,7 @@ private fun DramaContent(
     airingExpanded: Boolean,
     onExpandAiring: (Boolean) -> Unit,
     onItemClick: (AniDramaItem) -> Unit,
+    extras: AniDramaExtras,
 ) {
     when (chip) {
         DramaChip.AiringNow -> if (airingExpanded) {
@@ -335,7 +336,7 @@ private fun DramaContent(
                 onItemClick = onItemClick,
             )
         } else {
-            DramaOverview(region, { onExpandAiring(true) }, onItemClick)
+            DramaOverview(region, { onExpandAiring(true) }, onItemClick, extras)
         }
         DramaChip.New, DramaChip.Upcoming, DramaChip.Popular, DramaChip.TopRated -> DramaGrid(
             region = region,
@@ -349,11 +350,12 @@ private fun DramaContent(
         )
         DramaChip.Genres -> DramaGenres(region, onItemClick)
         DramaChip.Networks -> DramaNetworks(region, onItemClick)
-        DramaChip.Calendar -> AniDramaWeekView(
+        DramaChip.Calendar -> AniDramaCalendarView(
             key = "drama-calendar-$region",
             loader = { start, days -> DramaRepository.schedule(region, start, days) },
             filter = { true },
             showDubBadge = false,
+            libraryIds = extras.libraryIds,
             onItemClick = onItemClick,
         )
     }
@@ -364,6 +366,7 @@ private fun DramaOverview(
     region: AniDramaRegion,
     onSeeAllAiring: () -> Unit,
     onItemClick: (AniDramaItem) -> Unit,
+    extras: AniDramaExtras,
 ) {
     val (schedule, _) = rememberAniDramaLoad("drama-overview-schedule-$region") { DramaRepository.weekSchedule(region) }
     val todayIso = remember { AniDramaTime.todayIso() }
@@ -397,11 +400,7 @@ private fun DramaOverview(
             .map { it.item.copy(caption = "Premiered ${AniDramaTime.shortDayLabel(it.dateIso)}") }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(26.dp),
-    ) {
+    OverviewColumn(region, extras) {
         item(key = "released-week") {
             AniDramaShelf("Released this week", releasedThisWeek, onItemClick, loading = schedule.loading)
         }
@@ -507,18 +506,22 @@ private fun BrowseHeader(
     onNewestChange: (Boolean) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AniDramaChip("Newest", newest, onClick = { onNewestChange(true) })
-            AniDramaChip("Popular", !newest, onClick = { onNewestChange(false) })
-        }
         androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             contentPadding = PaddingValues(vertical = 4.dp),
         ) {
             items(labels.size, key = { labels[it] }) { index ->
                 val label = labels[index]
                 AniDramaChip(label, label == selected, onClick = { onSelect(label) })
             }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            AniDramaSegmented(
+                options = listOf("Newest", "Popular"),
+                selectedIndex = if (newest) 0 else 1,
+                onSelect = { onNewestChange(it == 0) },
+                compact = true,
+            )
         }
     }
 }
@@ -544,15 +547,12 @@ private fun AniDramaGrid(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        if (header != null) {
-            item(key = "header", span = { GridItemSpan(maxLineSpan) }) { header() }
-        }
         if (title != null) {
             item(key = "title", span = { GridItemSpan(maxLineSpan) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (onBack != null) {
-                        AniDramaChip(label = "◀ Back", selected = false, onClick = onBack)
-                        Spacer(Modifier.width(12.dp))
+                        AniDramaStepButton(left = true, description = "Back", onClick = onBack)
+                        Spacer(Modifier.width(8.dp))
                     }
                     Text(
                         text = title,
@@ -562,6 +562,9 @@ private fun AniDramaGrid(
                     )
                 }
             }
+        }
+        if (header != null) {
+            item(key = "header", span = { GridItemSpan(maxLineSpan) }) { header() }
         }
         sections.forEach { section ->
             if (section.title.isNotBlank()) {
@@ -582,87 +585,91 @@ private fun AniDramaGrid(
                     AniDramaLoading(Modifier.fillMaxWidth().height(120.dp))
                 }
                 list.loading -> AniDramaLoading(Modifier.fillMaxWidth().height(120.dp))
-                items.isEmpty() -> AniDramaMessage("Nothing here right now.")
+                items.isEmpty() -> AniDramaMessage("Nothing found.")
                 else -> Spacer(Modifier.height(1.dp))
             }
         }
     }
 }
 
+/** Things the tab gets from the rest of the app: your add-on rows and library. */
+internal class AniDramaExtras(
+    val addonRows: List<CatalogRow>,
+    val libraryIds: Set<String>,
+    val onOpenMeta: (MetaPreview) -> Unit,
+    val onOpenCatalog: ((CatalogRow) -> Unit)?,
+)
+
 /**
- * Calendar on the TV: one week (Monday to Sunday) with a row of episodes per day,
- * and chips to move a week back or forward.
+ * Overview list like the phone: the tab's own shelves, then "From your add-ons" with the
+ * anime / Asian-drama rows from your add-ons that belong to this side of the tab.
  */
 @Composable
-private fun AniDramaWeekView(
-    key: String,
-    loader: suspend (String, Int) -> List<AniDramaScheduleEntry>,
-    filter: (AniDramaScheduleEntry) -> Boolean,
-    showDubBadge: Boolean,
-    onItemClick: (AniDramaItem) -> Unit,
+private fun OverviewColumn(
+    region: AniDramaRegion,
+    extras: AniDramaExtras,
+    shelves: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
-    var weekOffset by rememberSaveable(key) { mutableIntStateOf(0) }
-    val thisMonday = remember { AniDramaTime.mondayOfThisWeek() }
-    val start = AniDramaTime.addDays(thisMonday, weekOffset * 7)
-    val (state, retry) = rememberAniDramaLoad("$key|$start") { loader(start, 7) }
-    val today = remember { AniDramaTime.todayIso() }
-
+    val rows = remember(extras.addonRows, region) { AniDramaRows.rowsFor(region, extras.addonRows) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        item(key = "week-nav") {
-            Row(
-                modifier = Modifier.padding(horizontal = AniDramaEdge),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AniDramaChip("◀ Previous week", false, onClick = { weekOffset-- })
+        shelves()
+        if (rows.isNotEmpty()) {
+            item(key = "addons-title") {
                 Text(
-                    text = "Week of ${AniDramaTime.shortDayLabel(start)}",
+                    text = "From your add-ons",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = NuvioTheme.colors.Secondary,
+                    modifier = Modifier.padding(horizontal = AniDramaEdge),
+                )
+            }
+            rows.forEach { row ->
+                item(key = "addon-${row.addonId}-${row.rawType}-${row.catalogId}") {
+                    AddonRowShelf(row, extras)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddonRowShelf(row: CatalogRow, extras: AniDramaExtras) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = AniDramaEdge),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = row.catalogName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = NuvioTheme.colors.TextPrimary,
-                    modifier = Modifier.padding(horizontal = 8.dp),
                 )
-                AniDramaChip("Next week ▶", false, onClick = { weekOffset++ })
-                if (weekOffset != 0) AniDramaChip("This week", true, onClick = { weekOffset = 0 })
+                Text(
+                    text = row.addonName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NuvioTheme.colors.TextSecondary,
+                )
             }
+            extras.onOpenCatalog?.let { open -> AniDramaTextButton(label = "See all", onClick = { open(row) }) }
         }
-        when {
-            state.loading -> item(key = "loading") { AniDramaLoading(Modifier.fillMaxWidth().height(200.dp)) }
-            state.failed -> item(key = "failed") {
-                AniDramaMessage("Couldn't load the calendar.", Modifier.padding(horizontal = AniDramaEdge), onRetry = retry)
-            }
-            else -> {
-                val entries = state.value.orEmpty().filter(filter)
-                (0 until 7).forEach { offset ->
-                    val dayIso = AniDramaTime.addDays(start, offset)
-                    val dayItems = entries
-                        .filter { it.dateIso == dayIso }
-                        .sortedBy { it.sortKey }
-                        .distinctBy { "${it.item.key}#${it.episode}" }
-                        .map { entry ->
-                            entry.item.copy(
-                                key = "${entry.item.key}#${entry.episode}",
-                                caption = listOfNotNull(
-                                    if (entry.isPremiere) "Premiere" else null,
-                                    "EP ${entry.episode}",
-                                    entry.timeLabel,
-                                ).joinToString(" · "),
-                            )
-                        }
-                    item(key = "day-$dayIso") {
-                        AniDramaShelf(
-                            title = AniDramaTime.longDayLabel(dayIso) + if (dayIso == today) "  ·  Today" else "",
-                            items = dayItems,
-                            onItemClick = onItemClick,
-                            showDubBadge = showDubBadge,
-                            emptyText = "No episodes.",
-                        )
-                    }
-                }
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            contentPadding = PaddingValues(horizontal = AniDramaEdge, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            items(row.items.size, key = { "${row.items[it].id}#$it" }) { index ->
+                val meta = row.items[index]
+                AniDramaMetaTile(
+                    title = meta.name,
+                    poster = meta.poster,
+                    onClick = { extras.onOpenMeta(meta) },
+                    modifier = Modifier.width(AniDramaTileWidth),
+                )
             }
         }
     }

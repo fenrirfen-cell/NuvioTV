@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -40,7 +43,10 @@ import coil3.compose.AsyncImage
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.theme.NuvioTheme
 
-private val TileShape = RoundedCornerShape(10.dp)
+private val TileShape = RoundedCornerShape(8.dp)
+
+/** Phone app's surfaceVariant at 60%: the resting chip / segmented background. */
+internal val AniDramaSoft = Color(0xFF2A2B34).copy(alpha = 0.6f)
 
 /** Poster width used by shelves and grids on the TV. */
 internal val AniDramaTileWidth: Dp = 140.dp
@@ -166,7 +172,7 @@ internal fun AniDramaChip(
         modifier = modifier,
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) accent else Color(0xFF1C1D26),
+            containerColor = if (selected) accent else AniDramaSoft,
             focusedContainerColor = if (selected) accent else Color.White,
             contentColor = if (selected) NuvioTheme.colors.OnSecondary else NuvioTheme.colors.TextSecondary,
             focusedContentColor = if (selected) NuvioTheme.colors.OnSecondary else Color(0xFF0B0B0F),
@@ -184,7 +190,116 @@ internal fun AniDramaChip(
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 1,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+        )
+    }
+}
+
+/**
+ * Equal-width segmented switch like the phone (Anime | K-Drama | C-Drama | J-Drama, or
+ * Dub | Sub | Both). [compact] makes it hug its labels.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+internal fun AniDramaSegmented(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
+    val accent = NuvioTheme.colors.Secondary
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(AniDramaSoft)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        options.forEachIndexed { index, label ->
+            val selected = index == selectedIndex
+            Surface(
+                onClick = { onSelect(index) },
+                modifier = if (compact) Modifier else Modifier.weight(1f),
+                shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = if (selected) accent else Color.Transparent,
+                    focusedContainerColor = if (selected) accent else Color.White,
+                    contentColor = if (selected) NuvioTheme.colors.OnSecondary else NuvioTheme.colors.TextSecondary,
+                    focusedContentColor = if (selected) NuvioTheme.colors.OnSecondary else Color(0xFF0B0B0F),
+                ),
+                border = ClickableSurfaceDefaults.border(
+                    focusedBorder = Border(border = NuvioTheme.focusRing.border(2.dp), shape = CircleShape),
+                ),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .then(if (compact) Modifier else Modifier.fillMaxWidth())
+                        .padding(horizontal = if (compact) 12.dp else 6.dp, vertical = if (compact) 5.dp else 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = label,
+                        style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Red text link ("See all", "Week view", "Try again"), white pill while focused. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+internal fun AniDramaTextButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.White,
+            contentColor = NuvioTheme.colors.Secondary,
+            focusedContentColor = Color(0xFF0B0B0F),
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+        )
+    }
+}
+
+/** Round chevron button (previous / next year or month). */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+internal fun AniDramaStepButton(left: Boolean, onClick: () -> Unit, description: String) {
+    Surface(
+        onClick = onClick,
+        shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = AniDramaSoft,
+            focusedContainerColor = Color.White,
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContentColor = Color(0xFF0B0B0F),
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+    ) {
+        androidx.tv.material3.Icon(
+            imageVector = if (left) {
+                androidx.compose.material.icons.Icons.Rounded.ChevronLeft
+            } else {
+                androidx.compose.material.icons.Icons.Rounded.ChevronRight
+            },
+            contentDescription = description,
+            modifier = Modifier.padding(6.dp).size(22.dp),
         )
     }
 }
@@ -235,8 +350,9 @@ internal fun AniDramaShelf(
                 color = NuvioTheme.colors.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
+            if (onSeeAll != null) AniDramaTextButton(label = "See all", onClick = onSeeAll)
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         when {
             items.isNotEmpty() -> LazyRow(
                 contentPadding = PaddingValues(horizontal = AniDramaEdge, vertical = 6.dp),
@@ -249,16 +365,6 @@ internal fun AniDramaShelf(
                         showDubBadge = showDubBadge,
                         modifier = Modifier.width(AniDramaTileWidth),
                     )
-                }
-                if (onSeeAll != null) {
-                    item(key = "see-all") {
-                        Box(
-                            modifier = Modifier.width(AniDramaTileWidth).aspectRatio(2f / 3f),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            AniDramaChip(label = "See all", selected = true, onClick = onSeeAll)
-                        }
-                    }
                 }
             }
             loading -> AniDramaLoading(Modifier.fillMaxWidth().height(AniDramaTileWidth * 1.5f))
@@ -283,32 +389,62 @@ internal fun AniDramaMessage(text: String, modifier: Modifier = Modifier, onRetr
             color = NuvioTheme.colors.TextSecondary,
         )
         if (onRetry != null) {
-            Spacer(Modifier.height(8.dp))
-            AniDramaChip(label = "Try again", selected = false, onClick = onRetry)
+            Spacer(Modifier.height(6.dp))
+            AniDramaTextButton(label = "Try again", onClick = onRetry)
         }
     }
 }
 
-/** Header above a grid section ("November 2026 · 12 shows"). */
+/** A month / week header inside a grid: a thin line, then "November 2026 ........ 9 shows". */
 @Composable
 internal fun AniDramaSectionHeader(title: String, note: String?) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = NuvioTheme.colors.TextPrimary,
+    Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color.White.copy(alpha = 0.12f)),
         )
-        if (!note.isNullOrBlank()) {
-            Spacer(Modifier.width(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = note,
-                style = MaterialTheme.typography.labelMedium,
-                color = NuvioTheme.colors.TextSecondary,
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = NuvioTheme.colors.TextPrimary,
+                modifier = Modifier.weight(1f),
             )
+            if (!note.isNullOrBlank()) {
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NuvioTheme.colors.TextSecondary,
+                )
+            }
         }
     }
+}
+
+/** Poster card for an add-on row ("From your add-ons"), same look as the Ani-drama posters. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+internal fun AniDramaMetaTile(
+    title: String,
+    poster: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AniDramaPosterTile(
+        item = AniDramaItem(
+            key = "meta:$title",
+            title = title,
+            poster = poster,
+            backdrop = null,
+            source = AniDramaSource.Tmdb(0),
+        ),
+        onClick = onClick,
+        modifier = modifier,
+    )
 }

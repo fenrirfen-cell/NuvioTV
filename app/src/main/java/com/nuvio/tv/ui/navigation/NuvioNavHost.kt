@@ -1269,10 +1269,23 @@ private fun PlaybackNavHost(
             )
         }
 
-        rootComposable(Screen.AniDrama.route) {
+        rootComposable(Screen.AniDrama.route) { backStackEntry ->
+            // Anime / Asian-drama rows from your add-ons come from Home's data, like the phone.
+            val homeBackStackEntry = androidx.compose.runtime.remember {
+                runCatching { navController.getBackStackEntry(Screen.Home.route) }.getOrNull()
+            }
+            val homeViewModel: com.nuvio.tv.ui.screens.home.HomeViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel(homeBackStackEntry ?: backStackEntry)
+            val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
             com.nuvio.tv.ui.screens.anidrama.AniDramaScreen(
                 onOpenDetail = { itemId, itemType ->
                     navController.navigate(Screen.Detail.createRoute(itemId, itemType))
+                },
+                addonRows = homeState.catalogRows,
+                onOpenCatalog = { row ->
+                    navController.navigate(
+                        Screen.CatalogSeeAll.createRoute(row.catalogId, row.addonId, row.rawType)
+                    )
                 }
             )
         }
