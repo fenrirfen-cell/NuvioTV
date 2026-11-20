@@ -11,9 +11,12 @@ import java.text.Normalizer
 /**
  * Fenrir "Modo español": the TV app in Spanish for Spanish speakers.
  * - The app, show info (TMDB), audio and subtitles are set to Spanish.
- * - The source list only keeps links with Spanish audio (Latino or Castellano).
- * - Links that aren't in Spanish but come with Spanish subtitles stay, marked
- *   "Subtítulos en español", after the Spanish-audio ones.
+ * - Links with Spanish audio (Latino or Castellano) come first; when there are any, only those show.
+ * - Only when no source has Spanish audio, other audio (Japanese, Korean, English…) is used
+ *   when there are Spanish subtitles:
+ *   either your subtitle add-ons have Spanish ones for that title, or the link brings its own
+ *   (including "multi-sub" releases). Those links are marked "Subtítulos en español".
+ * - Links with neither are hidden.
  * Turning it off puts your earlier settings back.
  */
 object FenrirSpanishMode {
@@ -61,6 +64,9 @@ object FenrirSpanishMode {
         Regex("""\bsub\s*esp\b"""),
     )
 
+    /** "Multi-sub" releases (common for anime) usually include Spanish subtitles. */
+    private val multiSubs = Regex("""\bmulti[\s\-_.]?(subs?|subtitles?|subtitulos)\b""")
+
     /** Spanish audio markers (Latino, Castellano, Español, flags, language codes). */
     private val audioWords = Regex(
         """\b(latino|latin\s*spanish|castellano|espanol|spanish|audio\s*latino|dual\s*latino|lat|spa|esp|es-mx|es-419|es-es|es_mx|es_es)\b"""
@@ -85,30 +91,56 @@ object FenrirSpanishMode {
         }
         val flagAudio = spanishFlags.any { it in raw }
         if (flagAudio || audioWords.containsMatchIn(text)) return Kind.SPANISH_AUDIO
-        if (subs) return Kind.SPANISH_SUBS
-        val spanishSubtitleFile = stream.subtitles.any { sub ->
-            val lang = sub.lang.lowercase()
-            lang == "es" || lang == "spa" || lang.startsWith("es-") || lang.startsWith("es_") ||
-                plain(sub.label.orEmpty()).let { "espanol" in it || "spanish" in it || "latino" in it || "castellano" in it }
-        }
+        if (subs || multiSubs.containsMatchIn(text)) return Kind.SPANISH_SUBS
+        val spanishSubtitleFile = stream.subtitles.any { sub -> isSpanishSubtitle(sub.lang, sub.label) }
         return if (spanishSubtitleFile) Kind.SPANISH_SUBS else Kind.OTHER
     }
 
-    /** Keeps Spanish-audio links, then Spanish-subtitle links (marked), in each source. */
-    fun filter(groups: List<AddonStreams>): List<AddonStreams> = groups.mapNotNull { group ->
-        val audio = mutableListOf<Stream>()
-        val subs = mutableListOf<Stream>()
-        group.streams.forEach { stream ->
-            when (classify(stream)) {
-                Kind.SPANISH_AUDIO -> audio += stream
-                Kind.SPANISH_SUBS -> subs += stream.copy(
-                    description = listOfNotNull("⚠ $SUBS_LABEL (audio en otro idioma)", stream.description)
-                        .joinToString("\n"),
-                )
-                Kind.OTHER -> Unit
+    /**
+     * Spanish audio first: when any source has a Spanish-audio link for this title, only those
+     * are shown. Only when none has Spanish audio does it fall back to links with Spanish
+     * subtitles (marked). When [spanishSubtitlesAvailable] (your subtitle add-ons have Spanish
+     * ones for this title), every link counts as having Spanish subtitles, whatever its audio.
+     */
+    fun filter(groups: List<AddonStreams>, spanishSubtitlesAvailable: Boolean = false): List<AddonStreams> {
+        val kinds = groups.map { group -> group.streams.map { it to classify(it) } }
+        val anySpanishAudio = kinds.any { list -> list.any { it.second == Kind.SPANISH_AUDIO } }
+        return groups.mapIndexedNotNull { index, group ->
+            val kept = kinds[index].mapNotNull { (stream, kind) ->
+                when {
+                    kind == Kind.SPANISH_AUDIO -> stream.copy(
+                        description = listOfNotNull("🇪🇸 Audio en español", stream.description).joinToString("\n"),
+                    )
+                    anySpanishAudio -> null
+                    kind == Kind.SPANISH_SUBS -> stream.copy(
+                        description = listOfNotNull("💬 $SUBS_LABEL", stream.description).joinToString("\n"),
+                    )
+                    spanishSubtitlesAvailable -> stream.copy(
+                        description = listOfNotNull("💬 $SUBS_LABEL (de tus add-ons de subtítulos)", stream.description)
+                            .joinToString("\n"),
+                    )
+                    else -> null
+                }
             }
+            if (kept.isEmpty()) null else group.copy(streams = kept)
         }
-        val kept = audio + subs
-        if (kept.isEmpty()) null else group.copy(streams = kept)
+    }
+
+    /** True for Spanish subtitle language codes and names ("es", "spa", "es-419", "Español"…). */
+    fun isSpanishSubtitle(lang: String?, label: String? = null): Boolean {
+        val code = lang.orEmpty().lowercase().trim()
+        if (code == "es" || code == "spa" || code == "esp" || code.startsWith("es-") || code.startsWith("es_")) return true
+        val name = plain("$lang ${label.orEmpty()}")
+        return "espanol" in name || "spanish" in name || "latino" in name || "castellano" in name
+    }
+
+    private val subtitleChecks = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    /** Remembers per title whether subtitle add-ons have Spanish subtitles. */
+    fun cachedSubtitleCheck(key: String): Boolean? = subtitleChecks[key]
+
+    fun rememberSubtitleCheck(key: String, available: Boolean) {
+        if (subtitleChecks.size > 200) subtitleChecks.clear()
+        subtitleChecks[key] = available
     }
 }

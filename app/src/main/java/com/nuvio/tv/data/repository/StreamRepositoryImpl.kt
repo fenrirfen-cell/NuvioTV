@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URLEncoder
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -60,7 +61,9 @@ class StreamRepositoryImpl @Inject constructor(
     private val tmdbService: TmdbService,
     private val debridStreamPresentation: DebridStreamPresentation,
     private val localDebridAvailabilityService: LocalDebridAvailabilityService,
-    private val serverStreams: ServerStreams
+    private val serverStreams: ServerStreams,
+    // Fenrir "Modo español": checks whether subtitle add-ons have Spanish subtitles for a title.
+    private val subtitleRepository: javax.inject.Provider<com.nuvio.tv.domain.repository.SubtitleRepository>? = null
 ) : StreamRepository {
     private val streamSearchSessions = StreamSearchSessionCache()
     private val localPluginSearchPaused = MutableStateFlow(false)
@@ -137,23 +140,71 @@ class StreamRepositoryImpl @Inject constructor(
                     preferredPluginOnly = preferredPluginOnly,
                     continuePluginOnly = continuePluginOnly
                 )
-            }.fenrirSpanishFilter()
+            }.fenrirSpanishFilter(type, videoId, season, episode)
         )
     }
 
-    /** Fenrir "Modo español": only Spanish-audio links, plus Spanish-subtitle links marked as such. */
-    private fun Flow<NetworkResult<List<AddonStreams>>>.fenrirSpanishFilter(): Flow<NetworkResult<List<AddonStreams>>> =
-        kotlinx.coroutines.flow.flow {
-            collect { result ->
-                emit(
-                    if (com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.value && result is NetworkResult.Success) {
-                        NetworkResult.Success(com.nuvio.tv.fenrir.FenrirSpanishMode.filter(result.data))
-                    } else {
-                        result
+    /**
+     * Fenrir "Modo español": Spanish-audio links first, then links with Spanish subtitles (any
+     * audio). Whether your subtitle add-ons have Spanish subtitles for this title is checked while
+     * the sources load; when they do, every link stays.
+     */
+    private fun Flow<NetworkResult<List<AddonStreams>>>.fenrirSpanishFilter(
+        type: String,
+        videoId: String,
+        season: Int?,
+        episode: Int?
+    ): Flow<NetworkResult<List<AddonStreams>>> {
+        val upstream = this
+        return kotlinx.coroutines.flow.channelFlow {
+            if (!com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.value) {
+                upstream.collect { send(it) }
+                return@channelFlow
+            }
+            val checkKey = "$type|$videoId"
+            val lock = Any()
+            var subsAvailable: Boolean? = com.nuvio.tv.fenrir.FenrirSpanishMode.cachedSubtitleCheck(checkKey)
+            var lastGroups: List<AddonStreams>? = null
+            if (subsAvailable == null) {
+                launch {
+                    val found = withTimeoutOrNull(10_000) { spanishSubtitlesAvailable(type, videoId, season, episode) } ?: false
+                    com.nuvio.tv.fenrir.FenrirSpanishMode.rememberSubtitleCheck(checkKey, found)
+                    val groups = synchronized(lock) {
+                        subsAvailable = found
+                        lastGroups
                     }
-                )
+                    // Sources already shown without these subtitles: show them again with every link.
+                    if (found && groups != null) {
+                        send(NetworkResult.Success(com.nuvio.tv.fenrir.FenrirSpanishMode.filter(groups, true)))
+                    }
+                }
+            }
+            upstream.collect { result ->
+                if (result is NetworkResult.Success) {
+                    val available = synchronized(lock) {
+                        lastGroups = result.data
+                        subsAvailable == true
+                    }
+                    send(NetworkResult.Success(com.nuvio.tv.fenrir.FenrirSpanishMode.filter(result.data, available)))
+                } else {
+                    send(result)
+                }
             }
         }
+    }
+
+    private suspend fun spanishSubtitlesAvailable(type: String, videoId: String, season: Int?, episode: Int?): Boolean {
+        val repository = subtitleRepository?.get() ?: return false
+        val contentId = if (season != null && episode != null && videoId.count { it == ':' } >= 2) {
+            videoId.split(":").dropLast(2).joinToString(":")
+        } else {
+            videoId
+        }
+        return runCatching {
+            repository.getSubtitles(type = type, id = contentId, videoId = videoId)
+                .any { com.nuvio.tv.fenrir.FenrirSpanishMode.isSpanishSubtitle(it.lang, it.label) }
+        }.getOrDefault(false)
+    }
 
     override suspend fun getCachedStreamsFromAllAddons(
         type: String,
@@ -163,7 +214,14 @@ class StreamRepositoryImpl @Inject constructor(
     ): List<AddonStreams>? = streamSearchSessions.peek(
         buildStreamSearchRequestKey(captureSourceConfiguration(), type, videoId, season, episode)
     )?.let { groups ->
-        if (com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.value) com.nuvio.tv.fenrir.FenrirSpanishMode.filter(groups) else groups
+        if (com.nuvio.tv.fenrir.FenrirSpanishMode.enabled.value) {
+            com.nuvio.tv.fenrir.FenrirSpanishMode.filter(
+                groups,
+                com.nuvio.tv.fenrir.FenrirSpanishMode.cachedSubtitleCheck("$type|$videoId") == true
+            )
+        } else {
+            groups
+        }
     }
 
     private fun buildStreamSearchRequestKey(
