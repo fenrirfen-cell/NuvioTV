@@ -1,6 +1,6 @@
 name: Fenrir TV build
 
-# Builds Fenrir Read TV (this fork of NuvioTV) and publishes it as a GitHub release.
+# Builds Fenrir TV (this fork of NuvioTV) and publishes it as a GitHub release.
 # Once a day it checks for a new official NuvioTV *release* (not daily commits);
 # only when there is one (or when you press "Run workflow") does it build.
 
@@ -132,15 +132,15 @@ jobs:
           OUT=app/build/outputs/apk/full/debug
           VER=$(grep -m1 'versionName = "' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
           TAG="fenrirtv-${VER}-r${GITHUB_RUN_NUMBER}"
-          NAME="FenrirReadTV-${VER}-r${GITHUB_RUN_NUMBER}"
+          NAME="FenrirTV-${VER}-r${GITHUB_RUN_NUMBER}"
           cp "$OUT/app-full-universal-debug.apk"   "${NAME}-universal.apk"
           cp "$OUT/app-full-arm64-v8a-debug.apk"   "${NAME}-arm64-v8a.apk"
           cp "$OUT/app-full-armeabi-v7a-debug.apk" "${NAME}-armeabi-v7a.apk"
-          NOTES="Fenrir Read TV build ${GITHUB_RUN_NUMBER}, based on official NuvioTV ${{ steps.merge.outputs.tag }}.
+          NOTES="Fenrir TV build ${GITHUB_RUN_NUMBER}, based on official NuvioTV ${{ steps.merge.outputs.tag }}.
 
           Most TVs and sticks: download the **armeabi-v7a** or **universal** APK."
           gh release create "$TAG" "${NAME}-universal.apk" "${NAME}-arm64-v8a.apk" "${NAME}-armeabi-v7a.apk" \
-            --title "Fenrir Read TV ${VER} (build ${GITHUB_RUN_NUMBER})" --notes "$NOTES" --target "$(git rev-parse HEAD)"
+            --title "Fenrir TV ${VER} (build ${GITHUB_RUN_NUMBER})" --notes "$NOTES" --target "$(git rev-parse HEAD)"
           # Keep only the 5 newest Fenrir TV releases.
           gh release list --limit 100 --json tagName,createdAt --jq '.[] | select(.tagName|startswith("fenrirtv-")) | .tagName' \
             | tail -n +6 | while read -r old; do gh release delete "$old" --yes --cleanup-tag || true; done

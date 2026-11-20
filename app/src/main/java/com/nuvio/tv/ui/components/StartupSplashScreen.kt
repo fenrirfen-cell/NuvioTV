@@ -28,7 +28,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 
 /**
  * Fenrir opening screen, like the phone app: near-black with "FENRIR", a short red line
- * and "READ", then a small loading spinner while the app gets ready.
+ * and "TV", then a small loading spinner while the app gets ready.
  * The profile colour / background parameters are kept for the caller but no longer drawn.
  */
 @Suppress("UNUSED_PARAMETER")
@@ -76,7 +76,7 @@ fun StartupSplashScreen(
             )
             Spacer(Modifier.height(18.dp))
             Text(
-                text = "READ",
+                text = "TV",
                 color = Color(0xFFA7A7B2),
                 fontSize = 20.sp,
                 letterSpacing = 11.sp,

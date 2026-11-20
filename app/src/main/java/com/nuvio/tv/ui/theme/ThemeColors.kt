@@ -91,7 +91,7 @@ object ThemeColors {
         backgroundCard = NuvioPrimitives.neutral850
     )
 
-    /** Fenrir Read: near-black surfaces and coral red, like the Fenrir phone app. */
+    /** Fenrir TV: near-black surfaces and coral red, like the Fenrir phone app. */
     val Fenrir = ThemeColorPalette(
         secondary = Color(0xFFFF4D57),
         secondaryVariant = Color(0xFFE8434C),

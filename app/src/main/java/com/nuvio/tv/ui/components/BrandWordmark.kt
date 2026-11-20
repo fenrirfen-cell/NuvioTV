@@ -21,11 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.tv.material3.Text
 
-/** Fenrir red used by the "READ" half of the wordmark. */
+/** Fenrir red used by the "TV" half of the wordmark. */
 val FenrirWordmarkRed = Color(0xFFFF4D57)
 
 /**
- * Fenrir Read wordmark: "FENRIR" with a smaller red "READ" beside it, like the phone app.
+ * Fenrir TV wordmark: "FENRIR" with a smaller red "TV" beside it (the phone app says "READ").
  * Sized to fit the height (and width, when bounded) it is given. The old Nuvio logo pictures
  * ([drawableOverride], [contentScale]) are no longer drawn; the parameters stay for callers.
  */
@@ -37,7 +37,7 @@ fun BrandWordmark(
     alpha: Float = 1f,
     @Suppress("UNUSED_PARAMETER") drawableOverride: Int? = null
 ) {
-    val description = contentDescription ?: "Fenrir Read"
+    val description = contentDescription ?: "Fenrir TV"
     BoxWithConstraints(
         modifier = modifier
             .alpha(alpha)
@@ -70,7 +70,7 @@ fun FenrirWordmarkText(mainSize: Dp, modifier: Modifier = Modifier) {
             Spacer(Modifier.width(mainSize * 0.27f))
             Box(Modifier.padding(bottom = mainSize * 0.14f)) {
                 Text(
-                    text = "READ",
+                    text = "TV",
                     color = FenrirWordmarkRed,
                     fontSize = small.toSp(),
                     letterSpacing = (small * 0.3f).toSp(),

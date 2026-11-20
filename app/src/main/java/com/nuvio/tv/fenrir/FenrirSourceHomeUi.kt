@@ -98,7 +98,7 @@ fun fenrirPlayRoute(
 
 // ------------------------------------------------------------------ source button + picker
 
-/** "FENRIR READ ▾" pill: shows which site Home is showing and opens the list of sites. */
+/** "FENRIR TV ▾" pill: shows which site Home is showing and opens the list of sites. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun FenrirSourceButton(sourceName: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -123,7 +123,7 @@ fun FenrirSourceButton(sourceName: String?, onClick: () -> Unit, modifier: Modif
         ) {
             Text("FENRIR", fontSize = 14.sp, letterSpacing = 3.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.width(5.dp))
-            Text("READ", fontSize = 10.sp, letterSpacing = 2.sp, color = Red, fontWeight = FontWeight.SemiBold)
+            Text("TV", fontSize = 10.sp, letterSpacing = 2.sp, color = Red, fontWeight = FontWeight.SemiBold)
             Text(" ▾", fontSize = 13.sp)
             if (!sourceName.isNullOrBlank()) {
                 Text("  ·  $sourceName", style = MaterialTheme.typography.labelMedium, maxLines = 1)

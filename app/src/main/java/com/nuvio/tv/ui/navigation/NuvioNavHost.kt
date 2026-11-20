@@ -227,7 +227,7 @@ private fun PlaybackNavHost(
         }
 
         rootComposable(Screen.Home.route) {
-            // Fenrir: Home can show a CloudStream source's own categories (picked from FENRIR READ ▾).
+            // Fenrir: Home can show a CloudStream source's own categories (picked from FENRIR TV ▾).
             val fenrirContext = androidx.compose.ui.platform.LocalContext.current
             androidx.compose.runtime.remember { com.nuvio.tv.fenrir.FenrirSourceHomePick.init(fenrirContext) }
             val fenrirPicked by com.nuvio.tv.fenrir.FenrirSourceHomePick.selected.collectAsStateWithLifecycle()
@@ -393,7 +393,7 @@ private fun PlaybackNavHost(
                     navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
                 }
             )
-            // FENRIR READ ▾: pick a CloudStream source for Home (only when you have one).
+            // FENRIR TV ▾: pick a CloudStream source for Home (only when you have one).
             if (!fenrirSources.isNullOrEmpty()) {
                 com.nuvio.tv.fenrir.FenrirSourceButton(
                     sourceName = null,
