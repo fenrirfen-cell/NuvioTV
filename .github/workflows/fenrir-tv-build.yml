@@ -143,10 +143,14 @@ jobs:
           cp "$OUT/app-full-universal-debug.apk"   "${NAME}-universal.apk"
           cp "$OUT/app-full-arm64-v8a-debug.apk"   "${NAME}-arm64-v8a.apk"
           cp "$OUT/app-full-armeabi-v7a-debug.apk" "${NAME}-armeabi-v7a.apk"
+          # Same APK under a fixed name, so one link (and one Downloader code) always gets the newest:
+          # https://github.com/fenrirfen-cell/NuvioTV/releases/latest/download/FenrirTV.apk
+          cp "$OUT/app-full-armeabi-v7a-debug.apk" "FenrirTV.apk"
           NOTES="Fenrir TV build ${GITHUB_RUN_NUMBER}, based on official NuvioTV ${{ steps.merge.outputs.tag }}.
 
-          Most TVs and sticks: download the **armeabi-v7a** or **universal** APK."
-          gh release create "$TAG" "${NAME}-universal.apk" "${NAME}-arm64-v8a.apk" "${NAME}-armeabi-v7a.apk" \
+          Most TVs and sticks: download the **armeabi-v7a** or **universal** APK.
+          Always-newest link (for the Downloader app): https://github.com/${{ github.repository }}/releases/latest/download/FenrirTV.apk"
+          gh release create "$TAG" "FenrirTV.apk" "${NAME}-universal.apk" "${NAME}-arm64-v8a.apk" "${NAME}-armeabi-v7a.apk" \
             --title "Fenrir TV ${VER} (build ${GITHUB_RUN_NUMBER})" --notes "$NOTES" --target "$(git rev-parse HEAD)"
           # Keep only the 5 newest Fenrir TV releases.
           gh release list --limit 100 --json tagName,createdAt --jq '.[] | select(.tagName|startswith("fenrirtv-")) | .tagName' \
