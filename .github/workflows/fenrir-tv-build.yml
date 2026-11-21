@@ -1,3 +1,4 @@
+# Fenrir TV build (signed with the repo secrets).
 name: Fenrir TV build
 
 # Builds Fenrir TV (this fork of NuvioTV) and publishes it as a GitHub release.
